@@ -473,9 +473,68 @@
   .multiplier-badge.x15 { background: rgba(34, 197, 94, 0.2); color: var(--green); }
   .multiplier-badge.x10 { background: rgba(59, 130, 246, 0.2); color: var(--blue); }
   .multiplier-badge.x05 { background: rgba(107, 114, 128, 0.2); color: var(--dim); }
+
+  /* === 首次初始化界面 === */
+  .init-overlay {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: var(--bg);
+    display: none;
+    align-items: center; justify-content: center;
+    z-index: 9999;
+  }
+  .init-overlay.show { display: flex; }
+  .init-card {
+    background: linear-gradient(135deg, var(--card) 0%, var(--card2) 100%);
+    padding: 40px 32px;
+    border-radius: 16px;
+    border: 1px solid var(--border);
+    max-width: 380px;
+    width: 90%;
+    text-align: center;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  }
+  .init-logo { font-size: 56px; color: var(--gold); margin-bottom: 8px; line-height: 1; }
+  .init-card h2 { font-size: 22px; margin-bottom: 8px; color: #fff; }
+  .init-card > p { color: var(--dim); font-size: 13px; margin-bottom: 24px; }
+  .init-fields { display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px; }
+  .init-fields input {
+    background: var(--bg); border: 1px solid var(--border);
+    color: #fff; padding: 14px 16px; border-radius: 10px;
+    font-size: 15px; outline: none;
+    transition: border-color 0.2s;
+  }
+  .init-fields input:focus { border-color: var(--gold); }
+  .init-fields input::placeholder { color: var(--dim2); }
+  #initSubmit {
+    background: linear-gradient(135deg, var(--gold) 0%, #d97706 100%);
+    border: none; color: #fff;
+    padding: 14px; border-radius: 10px;
+    font-size: 15px; font-weight: 700;
+    cursor: pointer; width: 100%;
+    transition: transform 0.1s;
+  }
+  #initSubmit:hover { transform: translateY(-1px); }
+  .init-note { font-size: 11px; color: var(--dim2); margin-top: 14px; line-height: 1.5; }
 </style>
 </head>
 <body>
+
+<!-- 首次访问初始化界面 -->
+<div id="initOverlay" class="init-overlay">
+  <div class="init-card">
+    <div class="init-logo">₿</div>
+    <h2>BTC 定投看板</h2>
+    <p>首次使用，请设置你的账户</p>
+    <div class="init-fields">
+      <input type="text" id="initUser" placeholder="用户名（字母、数字、-、_）" autocomplete="off">
+      <input type="password" id="initKey" placeholder="密码（保护数据，请记好）" autocomplete="new-password">
+      <input type="number" id="initCapital" placeholder="总资金 (USDT)" value="100000" min="0" step="1000">
+    </div>
+    <button id="initSubmit">开始使用 →</button>
+    <p class="init-note">设置后用户名密码不可改 · 多设备同步用相同的</p>
+  </div>
+</div>
+
 <div class="container">
   <header>
     <div>
@@ -2658,16 +2717,40 @@
     if (e.key === 'Escape' && modal.classList.contains('open')) modal.classList.remove('open');
   });
 
-  // 启动：先从云端同步历史，再加载指标数据
-  checkServer().finally(() => {
-    loadAll();
-  });
+  // === 首次访问初始化检查 ===
+  const hasInit = localStorage.getItem('dca_user_id') && localStorage.getItem('dca_user_key');
+  if (!hasInit) {
+    // 未初始化：显示设置界面，不加载主页面
+    document.getElementById('initOverlay').classList.add('show');
+    document.getElementById('initSubmit').addEventListener('click', () => {
+      const user = document.getElementById('initUser').value.trim();
+      const key = document.getElementById('initKey').value;
+      const capital = document.getElementById('initCapital').value;
+      if (!user) { alert('请填用户名'); return; }
+      if (!/^[a-zA-Z0-9_\-]+$/.test(user)) { alert('用户名只能字母、数字、下划线、短横线'); return; }
+      if (!key) { alert('请填密码'); return; }
+      localStorage.setItem('dca_user_id', user);
+      localStorage.setItem('dca_user_key', key);
+      if (capital) localStorage.setItem('dca_capital', capital);
+      location.reload();
+    });
+  } else {
+    // 已初始化：恢复总资金 + 加载主页面
+    const savedCapital = localStorage.getItem('dca_capital');
+    if (savedCapital) document.getElementById('totalCapital').value = savedCapital;
 
-  setInterval(loadAll, 10 * 60 * 1000);  // 全量 10 分钟
-  setInterval(async () => {
-    const p = await fetchPrice();
-    if (p) { currentPrice = p.price; priceChange = p.chg; render(); }
-  }, 30000);  // 价格 30 秒
+    // 启动：先从云端同步历史，再加载指标数据
+    checkServer().finally(() => {
+      loadAll();
+    });
+
+    setInterval(loadAll, 10 * 60 * 1000);  // 全量 10 分钟
+    setInterval(async () => {
+      const p = await fetchPrice();
+      if (p) { currentPrice = p.price; priceChange = p.chg; render(); }
+    }, 30000);  // 价格 30 秒
+  }
+
 </script>
 </body>
 </html>
