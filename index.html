@@ -528,7 +528,7 @@
     <div class="init-fields">
       <input type="text" id="initUser" placeholder="用户名（字母、数字、-、_）" autocomplete="off">
       <input type="password" id="initKey" placeholder="密码（保护数据，请记好）" autocomplete="new-password">
-      <input type="number" id="initCapital" placeholder="总资金 (USDT)" value="100000" min="0" step="1000">
+      <input type="number" id="initCapital" placeholder="总资金 (USDT)" min="0" step="1000" required>
     </div>
     <button id="initSubmit">开始使用 →</button>
     <p class="init-note">设置后用户名密码不可改 · 多设备同步用相同的</p>
@@ -557,7 +557,7 @@
     <div class="input-group">
       <label>总资金 (USDT)</label>
       <div style="display:flex;gap:6px;align-items:center;">
-        <input type="number" id="totalCapital" value="100000" min="0" step="1000" style="flex:1;" onchange="if(window.render)render()" oninput="if(window.render)render()">
+        <input type="number" id="totalCapital" placeholder="填入总资金" min="0" step="1000" style="flex:1;" onchange="if(window.render)render()" oninput="if(window.render)render()">
         <button id="recalcBtn" class="bind-btn" style="background:linear-gradient(135deg,#f7931a 0%,#d97706 100%);color:#fff;">🔄 重算</button>
       </div>
     </div>
