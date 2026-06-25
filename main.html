@@ -492,6 +492,10 @@
       <input type="text" id="userIdInput" placeholder="设置你的用户名" autocomplete="off">
     </div>
     <div class="input-group">
+      <label>密码（保护数据）</label>
+      <input type="password" id="userKeyInput" placeholder="设置密码（首次设置后不可改）" autocomplete="new-password">
+    </div>
+    <div class="input-group">
       <label>总资金 (USDT)</label>
       <div style="display:flex;gap:6px;align-items:center;">
         <input type="number" id="totalCapital" value="100000" min="0" step="1000" style="flex:1;" onchange="if(window.render)render()" oninput="if(window.render)render()">
@@ -2038,6 +2042,14 @@
   }
   let USER_ID = getUserId();
 
+  // 密码（保护数据）：localStorage 存储
+  function getUserKey() {
+    const urlKey = new URLSearchParams(location.search).get('key');
+    if (urlKey) return urlKey;
+    return localStorage.getItem('dca_user_key') || '';
+  }
+  let USER_KEY = getUserKey();
+
   let workerConnected = false;
 
   async function checkServer() {
@@ -2049,7 +2061,7 @@
     try {
       const ctrl = new AbortController();
       const timer = setTimeout(() => ctrl.abort(), 5000);
-      const r = await fetch(`${WORKER_URL}/load?user=${encodeURIComponent(USER_ID)}`, {
+      const r = await fetch(`${WORKER_URL}/load?user=${encodeURIComponent(USER_ID)}&key=${encodeURIComponent(USER_KEY)}`, {
         signal: ctrl.signal
       });
       clearTimeout(timer);
@@ -2099,7 +2111,7 @@
         totalCapital: parseFloat(document.getElementById('totalCapital').value) || 0,
         history: getHistory()
       };
-      const r = await fetch(`${WORKER_URL}/save?user=${encodeURIComponent(USER_ID)}`, {
+      const r = await fetch(`${WORKER_URL}/save?user=${encodeURIComponent(USER_ID)}&key=${encodeURIComponent(USER_KEY)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)
@@ -2592,21 +2604,27 @@
     render();
   });
 
-  // 用户名输入：启动时填入 + 应用按钮
+  // 用户名 + 密码输入：启动时填入 + 应用按钮
   document.getElementById('userIdInput').value = USER_ID;
+  document.getElementById('userKeyInput').value = USER_KEY;
   document.getElementById('applyUserBtn').addEventListener('click', () => {
     const newId = document.getElementById('userIdInput').value.trim();
+    const newKey = document.getElementById('userKeyInput').value;
     if (!newId) { alert('请输入用户名'); return; }
-    // 简单校验：只允许字母数字-_（防止注入）
     if (!/^[a-zA-Z0-9_\-]+$/.test(newId)) {
       alert('用户名只能用字母、数字、下划线、短横线');
       return;
     }
     localStorage.setItem('dca_user_id', newId);
+    if (newKey) localStorage.setItem('dca_user_key', newKey);
     const url = new URL(location);
     url.searchParams.set('user', newId);
+    if (newKey) url.searchParams.set('key', newKey);
     history.replaceState({}, '', url);
     location.reload();
+  });
+  document.getElementById('userKeyInput').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') document.getElementById('applyUserBtn').click();
   });
   // 回车也能应用
   document.getElementById('userIdInput').addEventListener('keydown', (e) => {
