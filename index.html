@@ -528,7 +528,7 @@
     <div class="init-fields">
       <input type="text" id="initUser" placeholder="用户名（字母、数字、-、_）" autocomplete="off">
       <input type="password" id="initKey" placeholder="密码（保护数据，请记好）" autocomplete="new-password">
-      <input type="number" id="initCapital" placeholder="总资金 (USDT)" min="0" step="1000" required>
+      <input type="number" id="initCapital" placeholder="总资金 (USDT)" min="0" step="1000" required autocomplete="off">
     </div>
     <button id="initSubmit">开始使用 →</button>
     <p class="init-note">设置后用户名密码不可改 · 多设备同步用相同的</p>
@@ -2087,7 +2087,7 @@
 
   // ============== Cloudflare Workers 云端同步（多设备） ==============
   // 用户填：Cloudflare Worker 部署后的 URL
-  const WORKER_URL = 'https://YOUR-WORKER.your-subdomain.workers.dev';
+  const WORKER_URL = 'https://btc-dca.hjvjbcjjvnk.workers.dev';
 
   function isWorkerConfigured() {
     return WORKER_URL && !WORKER_URL.includes('YOUR-WORKER');
