@@ -918,12 +918,21 @@
     </div>
   </div>
 
-  <!-- 矩阵（已废弃，去掉时间维度，保留位置避免布局抖动）-->
-  <div class="section-title">价格档位 · 目标累计仓位（240 天分摊）</div>
-  <div class="matrix-wrap" id="matrixWrap" style="padding:14px 18px;">
-    <div id="tierMatrixHint" style="font-size:12.5px;color:var(--dim);line-height:1.7;">
-      每天 = 目标仓位% ÷ 240 × 信号倍数 × 综合评分倍数（取较小值，最高 ×1.5）。详见上方「价格一次性买入」tab。
-    </div>
+  <!-- 价格档位表（240 天分摊）-->
+  <div class="section-title">价格档位 · 目标仓位（240 天分摊）</div>
+  <div class="matrix-wrap">
+    <table class="matrix-table" id="tierMatrixTable">
+      <thead>
+        <tr>
+          <th>价格区间</th>
+          <th>目标累计仓位</th>
+          <th>每日基础 %</th>
+          <th>每日金额（本金 ×）</th>
+          <th>状态</th>
+        </tr>
+      </thead>
+      <tbody id="tierMatrixBody"></tbody>
+    </table>
   </div>
 
   <!-- 累计进度 -->
@@ -3023,44 +3032,40 @@
     const multiplier = szMult != null ? Math.min(origMult, szMult) : origMult;
     const szLabel = szInfo ? ' · 综合' + szData.totalScore + '分×' + szMult.toFixed(1) : '';
 
-    // 当前价格档位 → 目标累计仓位%（来自 PRICE_TIERS.median）
+    // 当前价格档位（仅用于参考显示，不影响每日定投额）
     const tierData = PRICE_TIERS.find(t => price >= t.min && price < t.max);
-    if (!tierData || tierData.median === 0) {
-      return { amount: 0, baseRatio: 0, multiplier, tier: '观望', reason: '价格过高，不定投' + szLabel, isLump: false };
-    }
+    const tierLabel = tierData ? tierData.label : '-';
 
     const cumulative = computeCumulative();
     const allSpent = cumulative.total_spent;
     const totalLimit = total;  // 总上限 100%
 
     if (allSpent >= totalLimit) {
-      return { amount: 0, baseRatio: 0, multiplier, tier: tierData.label, reason: '已投满 100%，停止定投', isLump: false };
+      return { amount: 0, baseRatio: 0, multiplier, tier: tierLabel, reason: '已投满 100%，停止定投', isLump: false };
     }
 
-    // 子琦顶部（评分<20）→ 停投
+    // 综合评分顶部（评分<20）→ 停投
     if (szMult === 0) {
-      return { amount: 0, baseRatio: 0, multiplier: 0, tier: tierData.label, reason: '综合评分顶部，停投' + szLabel, isLump: false };
+      return { amount: 0, baseRatio: 0, multiplier: 0, tier: tierLabel, reason: '综合评分顶部，停投' + szLabel, isLump: false };
     }
 
-    // 极限恐慌档位（<3.5w, median=100）→ 一次性打光剩余
-    if (tierData.max === 35000) {
-      const lumpAmount = Math.min(tierData.median / 100 * total, totalLimit - allSpent);
-      return { amount: lumpAmount, baseRatio: tierData.median, multiplier: 1, tier: tierData.label, reason: '极限恐慌一次性打光' + szLabel, isLump: true };
+    // 极限恐慌档位（<3.5w）→ 一次性打光剩余
+    if (price < 35000) {
+      const lumpAmount = totalLimit - allSpent;
+      return { amount: lumpAmount, baseRatio: 100, multiplier: 1, tier: tierLabel, reason: '极限恐慌一次性打光剩余' + szLabel, isLump: true };
     }
 
-    // 普通档位：目标仓位 / 240 天 = 每天基础%
-    const dailyBase = tierData.median / 240;
-    const baseAmount = dailyBase / 100 * total;
+    // 标准定投：基础 100% / 240 天 ≈ 0.4167%/天（固定，不分价格档位）
+    const baseRatio = 100 / 240;
+    const baseAmount = baseRatio / 100 * total;
     const finalAmount = baseAmount * multiplier;
-
-    // 不超过总上限
     const actualFinal = Math.min(finalAmount, totalLimit - allSpent);
 
     const signalText = signal === 'superbuy' ? '超强仓 ×1.5' :
                        signal === 'buy' ? '加仓 ×1.2' :
                        signal === 'dca' ? '定投 ×1.0' :
                        signal === 'caution' ? '警惕 ×0.7' : '等待 ×0.3';
-    return { amount: actualFinal, baseRatio: dailyBase, multiplier, tier: tierData.label, reason: signalText + ' · 目标' + tierData.median + '%/240天' + szLabel, isLump: false };
+    return { amount: actualFinal, baseRatio, multiplier, tier: tierLabel, reason: signalText + ' · 100%/240天' + szLabel, isLump: false };
   }
 
   function renderToday() {
@@ -3184,6 +3189,33 @@
     }
   }
 
+  function renderTierMatrix() {
+    const tbody = document.getElementById('tierMatrixBody');
+    if (!tbody) return;
+    const total = parseFloat(document.getElementById('totalCapital') && document.getElementById('totalCapital').value) || 0;
+    const cur = PRICE_TIERS.find(t => currentPrice >= t.min && currentPrice < t.max);
+    const baseRatio = 100 / 240;  // 固定每日基础%
+    const dailyAmount = baseRatio / 100 * total;
+    tbody.innerHTML = '';
+    PRICE_TIERS.forEach(t => {
+      const isActive = cur && cur.id === t.id;
+      const targetAmount = total * t.median / 100;  // 该档位目标累计金额
+      const tr = document.createElement('tr');
+      if (isActive) tr.classList.add('current-level');
+      const marker = isActive ? '👉 ' : '';
+      const dailyDisplay = t.median === 0 ? '—' :
+                           t.median === 100 ? '一次性' :
+                           baseRatio.toFixed(4) + '%';
+      tr.innerHTML =
+        '<td class="row-label">' + marker + t.label + '</td>' +
+        '<td>' + t.pos + '</td>' +
+        '<td>' + dailyDisplay + '</td>' +
+        '<td>' + (t.median === 0 ? '—' : (t.median === 100 ? (total > 0 ? '$' + fmtMoney(total) : '—') : (dailyAmount > 0 ? '$' + fmtMoney(dailyAmount) : '—'))) + '</td>' +
+        '<td>' + t.note + '</td>';
+      tbody.appendChild(tr);
+    });
+  }
+
   function renderProgress() {
     const c = computeCumulative();
     const ratio = c.ratio;
@@ -3244,6 +3276,7 @@
     try { renderSignal(); } catch(e) { console.error('renderSignal:', e); }
     try { renderToday(); } catch(e) { console.error('renderToday:', e); }
     try { renderProgress(); } catch(e) { console.error('renderProgress:', e); }
+    try { renderTierMatrix(); } catch(e) { console.error('renderTierMatrix:', e); }
     try { renderHistory(); } catch(e) { console.error('renderHistory:', e); }
     try { renderPriceTier(); } catch(e) { console.error('renderPriceTier:', e); }
     const now = new Date();
