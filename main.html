@@ -2373,7 +2373,7 @@
   // 指标配置
   const INDICATORS = {
     ahr999: {
-      name: 'AHR999', weight: 30, fetch: fetchAhr999,
+      name: 'AHR999', weight: 25, fetch: fetchAhr999,
       zones: [
         { max: 0.4, signal: 'buy', label: '加大买入' },
         { max: 0.7, signal: 'dca', label: '定投' },
@@ -2381,7 +2381,7 @@
       ]
     },
     mvrvz: {
-      name: 'MVRV-Z', weight: 20, fetch: fetchMvrvZ,
+      name: 'MVRV-Z', weight: 15, fetch: fetchMvrvZ,
       zones: [
         { max: 0.5, signal: 'buy', label: '低估' },
         { max: 3, signal: 'dca', label: '正常' },
@@ -2389,7 +2389,7 @@
       ]
     },
     fng: {
-      name: '恐惧贪婪', weight: 15, fetch: fetchFng,
+      name: '恐惧贪婪', weight: 10, fetch: fetchFng,
       zones: [
         { max: 20, signal: 'buy', label: '极度恐惧' },
         { max: 50, signal: 'dca', label: '中性' },
