@@ -918,20 +918,12 @@
     </div>
   </div>
 
-  <!-- 矩阵 -->
-  <div class="section-title">价格 × 时间 基础矩阵（% / 天）</div>
-  <div class="matrix-wrap">
-    <table class="matrix-table">
-      <thead>
-        <tr>
-          <th>价格区间</th>
-          <th>试探期 (2026-07~12)</th>
-          <th>加仓期 (2027-01~03)</th>
-          <th>梭哈期 (2027-04+)</th>
-        </tr>
-      </thead>
-      <tbody id="matrixBody"></tbody>
-    </table>
+  <!-- 矩阵（已废弃，去掉时间维度，保留位置避免布局抖动）-->
+  <div class="section-title">价格档位 · 目标累计仓位（240 天分摊）</div>
+  <div class="matrix-wrap" id="matrixWrap" style="padding:14px 18px;">
+    <div id="tierMatrixHint" style="font-size:12.5px;color:var(--dim);line-height:1.7;">
+      每天 = 目标仓位% ÷ 240 × 信号倍数 × 综合评分倍数（取较小值，最高 ×1.5）。详见上方「价格一次性买入」tab。
+    </div>
   </div>
 
   <!-- 累计进度 -->
@@ -3020,69 +3012,61 @@
     });
   }
 
-  function computeTodayAmount(price, phase, signal) {
+  function computeTodayAmount(price, signal) {
     const total = parseFloat(document.getElementById('totalCapital').value) || 0;
-    const tier = getPriceTier(price);
-    const cell = MATRIX[tier][phase];
     const origMult = SIGNAL_MULTIPLIERS[signal];
 
     // 融合 seanzhao 评分倍数（取较小值，最高 1.5x）
     const szData = seanzhaoCache;
     const szInfo = szData && szData.totalScore != null ? getSzMultiplier(szData.totalScore) : null;
     const szMult = szInfo ? szInfo.mult : null;
-    // 取较小值（保守）；若 seanzhao 没数据则只用原倍数
     const multiplier = szMult != null ? Math.min(origMult, szMult) : origMult;
-    const szLabel = szInfo ? ' · 子琦' + szData.totalScore + '分×' + szMult.toFixed(1) : '';
+    const szLabel = szInfo ? ' · 综合' + szData.totalScore + '分×' + szMult.toFixed(1) : '';
+
+    // 当前价格档位 → 目标累计仓位%（来自 PRICE_TIERS.median）
+    const tierData = PRICE_TIERS.find(t => price >= t.min && price < t.max);
+    if (!tierData || tierData.median === 0) {
+      return { amount: 0, baseRatio: 0, multiplier, tier: '观望', reason: '价格过高，不定投' + szLabel, isLump: false };
+    }
 
     const cumulative = computeCumulative();
-    const phaseSpent = cumulative.byPhase[phase] || 0;
     const allSpent = cumulative.total_spent;
-    const phaseLimit = PHASE_LIMITS[phase] * total;
-    const totalLimit = 0.90 * total;
+    const totalLimit = total;  // 总上限 100%
 
     if (allSpent >= totalLimit) {
-      return { amount: 0, baseRatio: 0, multiplier, tier, reason: '已达总上限 90%，停止定投', isLump: false };
+      return { amount: 0, baseRatio: 0, multiplier, tier: tierData.label, reason: '已投满 100%，停止定投', isLump: false };
     }
 
     // 子琦顶部（评分<20）→ 停投
     if (szMult === 0) {
-      return { amount: 0, baseRatio: 0, multiplier: 0, tier, reason: '子琦顶部信号，停投' + szLabel, isLump: false };
+      return { amount: 0, baseRatio: 0, multiplier: 0, tier: tierData.label, reason: '综合评分顶部，停投' + szLabel, isLump: false };
     }
 
-    if (cell.lump) {
-      if (phaseSpent >= phaseLimit) {
-        return { amount: 0, baseRatio: 0, multiplier, tier, reason: '阶段已达上限', isLump: false };
-      }
-      const lumpAmount = Math.min(cell.lump / 100 * total, phaseLimit - phaseSpent) * (multiplier > 0 ? 1 : 0);
-      return { amount: lumpAmount, baseRatio: cell.lump, multiplier: 1, tier, reason: '历史大底一次性触发' + szLabel, isLump: true };
+    // 极限恐慌档位（<3.5w, median=100）→ 一次性打光剩余
+    if (tierData.max === 35000) {
+      const lumpAmount = Math.min(tierData.median / 100 * total, totalLimit - allSpent);
+      return { amount: lumpAmount, baseRatio: tierData.median, multiplier: 1, tier: tierData.label, reason: '极限恐慌一次性打光' + szLabel, isLump: true };
     }
 
-    if (cell.daily) {
-      const baseAmount = cell.daily / 100 * total;
-      const finalAmount = baseAmount * multiplier;
-      if (phaseSpent + finalAmount > phaseLimit) {
-        const remaining = phaseLimit - phaseSpent;
-        if (remaining <= 0) {
-          return { amount: 0, baseRatio: cell.daily, multiplier, tier, reason: '阶段已达上限', isLump: false };
-        }
-        return { amount: remaining, baseRatio: cell.daily, multiplier: remaining / baseAmount, tier, reason: '阶段收尾' + szLabel, isLump: false };
-      }
-      const signalText = signal === 'superbuy' ? '超强仓 ×1.5' :
-                         signal === 'buy' ? '加仓 ×1.2' :
-                         signal === 'dca' ? '定投 ×1.0' :
-                         signal === 'caution' ? '警惕 ×0.7' : '等待 ×0.3';
-      return { amount: finalAmount, baseRatio: cell.daily, multiplier, tier, reason: signalText + szLabel, isLump: false };
-    }
+    // 普通档位：目标仓位 / 240 天 = 每天基础%
+    const dailyBase = tierData.median / 240;
+    const baseAmount = dailyBase / 100 * total;
+    const finalAmount = baseAmount * multiplier;
 
-    return { amount: 0, baseRatio: 0, multiplier, tier, reason: '价格过高，不定投' + szLabel, isLump: false };
+    // 不超过总上限
+    const actualFinal = Math.min(finalAmount, totalLimit - allSpent);
+
+    const signalText = signal === 'superbuy' ? '超强仓 ×1.5' :
+                       signal === 'buy' ? '加仓 ×1.2' :
+                       signal === 'dca' ? '定投 ×1.0' :
+                       signal === 'caution' ? '警惕 ×0.7' : '等待 ×0.3';
+    return { amount: actualFinal, baseRatio: dailyBase, multiplier, tier: tierData.label, reason: signalText + ' · 目标' + tierData.median + '%/240天' + szLabel, isLump: false };
   }
 
   function renderToday() {
     if (currentPrice <= 0) return;
-    const phase = getCurrentPhase();
-    const tier = getPriceTier(currentPrice);
     const sig = computeSignal();
-    const today = computeTodayAmount(currentPrice, phase, sig.signal);
+    const today = computeTodayAmount(currentPrice, sig.signal);
 
     const tag = document.getElementById('phaseTag');
     const multEl = document.getElementById('signalMultiplier');
@@ -3093,12 +3077,16 @@
       console.warn('renderToday: missing required DOM');
       return;
     }
-    tag.className = 'phase-tag ' + phase;
-    tag.textContent = PHASE_LABELS[phase];
-    document.getElementById('phaseDate').textContent = PHASE_DATES[phase];
+    // 用 phaseTag 显示当前价格档位（取代原阶段标签）
+    const tierData = PRICE_TIERS.find(t => currentPrice >= t.min && currentPrice < t.max);
+    if (tierData) {
+      tag.className = 'phase-tag ' + (tierData.tone === 'wait' ? 'probe' : tierData.tone === 'allin' ? 'allin' : 'accumulate');
+      tag.textContent = tierData.label;
+    }
+    document.getElementById('phaseDate').textContent = tierData ? ('目标累计 ' + tierData.pos + ' · ' + tierData.note) : '-';
 
-    document.getElementById('priceTier').textContent = MATRIX[tier].label;
-    document.getElementById('baseRatio').textContent = today.baseRatio > 0 ? '基础 ' + today.baseRatio + '% / 天' : '无基础定投';
+    document.getElementById('priceTier').textContent = today.tier || '-';
+    document.getElementById('baseRatio').textContent = today.baseRatio > 0 ? '基础 ' + today.baseRatio.toFixed(4) + '% / 天' : (today.isLump ? '一次性' : '无基础定投');
 
     // 用 innerHTML 一次性生成 multEl（含 multBadge span），避免 textContent 清空 span
     const multText = today.isLump ? '一次性' : '×' + today.multiplier.toFixed(1);
@@ -3122,7 +3110,6 @@
       card.className = 'today-card skip';
     }
 
-    renderMatrix(phase, tier);
     renderCheckButton(today);
   }
 
@@ -3191,7 +3178,7 @@
         ? '今日应投 $' + fmtMoney(today.amount) + ' · 点击确认执行'
         : '今日不定投（' + today.reason + '）';
       btn.onclick = () => {
-        addTodayRecord(currentPrice, today.amount, getCurrentPhase(), today.tier, computeSignal().signal);
+        addTodayRecord(currentPrice, today.amount, 'normal', today.tier, computeSignal().signal);
         render();
       };
     }
@@ -3207,15 +3194,10 @@
     fill.className = 'progress-fill' + (ratio > 0.8 ? ' danger' : ratio > 0.6 ? ' warn' : '');
     document.getElementById('progressText').textContent = (ratio * 100).toFixed(1) + '%';
 
-    const phase = getCurrentPhase();
-    ['probe', 'accumulate', 'allin'].forEach((p, i) => {
-      const num = i + 1;
-      const card = document.getElementById('phase' + num + 'Card');
-      const spent = c.byPhase[p] || 0;
-      const limit = PHASE_LIMITS[p] * c.total;
-      document.getElementById('phase' + num + 'Spent').textContent = '$' + fmtMoney(spent);
-      card.classList.toggle('active', p === phase);
-      card.querySelector('.ps').textContent = '上限 ' + (PHASE_LIMITS[p] * 100).toFixed(0) + '% · 已 ' + (limit > 0 ? (spent / limit * 100).toFixed(0) : 0) + '%';
+    // 隐藏阶段卡片（去掉 phase 维度，不再使用）
+    ['phase1Card', 'phase2Card', 'phase3Card'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = 'none';
     });
   }
 
