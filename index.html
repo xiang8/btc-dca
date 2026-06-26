@@ -884,17 +884,17 @@
       <p>阈值：<span class="zone-buy">&lt; 1.0x 跌破均线（深低估）</span> · <span class="zone-dca">1.0–1.5x 接近均线</span> · <span class="zone-wait">&gt; 1.5x 远离均线</span></p>
     </div>
     <div class="help-card">
-      <h4>S1 LTH 持有者成本 <small>权重 5% · 数据：子琦</small></h4>
+      <h4>LTH 持有者成本 <small>权重 5% · 数据：子琦</small></h4>
       <p>价格相对短/平/长期持有者成本线的位置。返回 现价/平均成本 比值。</p>
       <p>阈值：<span class="zone-buy">&lt; 0.95 跌破长期成本（深底）</span> · <span class="zone-buy">0.95–1.0 跌破平均成本</span> · <span class="zone-dca">1.0–1.1 接近短期成本</span> · <span class="zone-wait">&gt; 1.1 站上短期成本</span></p>
     </div>
     <div class="help-card">
-      <h4>S3 相对未实现损失 <small>权重 5% · 数据：子琦</small></h4>
+      <h4>相对未实现损失 <small>权重 5% · 数据：子琦</small></h4>
       <p>全市场账面亏损占比（越多越接近底）。来自子琦底部信号看板。</p>
       <p>阈值：<span class="zone-wait">&lt; 15% 浮亏少（高位）</span> · <span class="zone-dca">15–30% 中性</span> · <span class="zone-buy">&gt; 30% 浮亏多（底部）</span></p>
     </div>
     <div class="help-card">
-      <h4>S4 资金净变化 <small>权重 5% · 数据：子琦</small></h4>
+      <h4>资金净变化 <small>权重 5% · 数据：子琦</small></h4>
       <p>近 30 天资金净流入/流出（$B）。负数=流出（接近底），正数=流入（接近顶）。</p>
       <p>阈值：<span class="zone-buy">≤ -20B 大幅流出（底部）</span> · <span class="zone-dca">-20B ~ -5B 小幅流出</span> · <span class="zone-wait">&gt; -5B 平衡/流入</span></p>
     </div>
@@ -2433,7 +2433,7 @@
     },
     // seanzhao 三大底部信号（每日更新，Worker 代理爬取）
     s1cost: {
-      name: 'S1 LTH成本', weight: 5, fetch: fetchS1CostRatio,
+      name: 'LTH 持有者成本', weight: 5, fetch: fetchS1CostRatio,
       zones: [
         { max: 0.95, signal: 'buy', label: '跌破长期成本' },
         { max: 1.0, signal: 'buy', label: '跌破平均成本' },
@@ -2442,7 +2442,7 @@
       ]
     },
     s3loss: {
-      name: 'S3 浮亏占比', weight: 5, fetch: fetchS3LossPct,
+      name: '浮亏占比', weight: 5, fetch: fetchS3LossPct,
       zones: [
         { max: 15, signal: 'wait', label: '浮亏少（高位）' },
         { max: 30, signal: 'dca', label: '中性' },
@@ -2450,11 +2450,11 @@
       ]
     },
     s4flow: {
-      name: 'S4 资金流', weight: 5, fetch: fetchS4NetFlow,
+      name: '资金流', weight: 5, fetch: fetchS4NetFlow,
       zones: [
-        { max: -20, signal: 'buy', label: '大幅流出' },
-        { max: -5, signal: 'dca', label: '小幅流出' },
-        { max: Infinity, signal: 'wait', label: '平衡/流入' }
+        { max: -20, signal: 'buy', label: '大幅流出 ≤-20B' },
+        { max: -5, signal: 'dca', label: '小幅流出 -20~-5B' },
+        { max: Infinity, signal: 'wait', label: '平衡/流入 >-5B' }
       ]
     }
   };
