@@ -759,6 +759,7 @@
       <input type="number" id="initCapital" placeholder="总资金 (USDT)" min="0" step="1000" required autocomplete="off">
       <input type="number" id="initExistingBtc" placeholder="已持仓 BTC 数量（如 1）" min="0" step="0.0001" autocomplete="off">
       <input type="number" id="initExistingAvg" placeholder="已持仓均价 USD（选填，如 80000）" min="0" step="100" autocomplete="off">
+      <input type="number" id="initDays" placeholder="分摊天数（默认 240）" min="30" step="30" autocomplete="off">
     </div>
     <button id="initSubmit">开始使用 →</button>
     <p class="init-note">账号密码设置后不可改 · 总资金/已持仓/均价进入后仍可改 · 多设备同步用相同的</p>
@@ -810,6 +811,10 @@
     <div class="input-group">
       <label>持仓均价 USD</label>
       <input type="number" id="existingAvgInput" placeholder="如 80000（选填）" min="0" step="100" autocomplete="off">
+    </div>
+    <div class="input-group">
+      <label>分摊天数</label>
+      <input type="number" id="daysInput" placeholder="推荐 248（到 27 年 3 月前）" min="30" step="30" autocomplete="off">
     </div>
   </div>
 
@@ -2473,6 +2478,8 @@
   let currentPrice = 0;
   let priceChange = 0;
   let indicatorValues = {};
+  // 自定义分摊天数（默认 240，用户可改）
+  let distributeDays = parseInt(localStorage.getItem('dca_distribute_days'), 10) || 248;  // 默认到 27 年 3 月前
 
   // ============== 工具 ==============
   function fetchTimeout(url, ms = 8000) {
@@ -3076,12 +3083,12 @@
 
     // 标准定投：基础% = 当前价格档位的目标仓位% / 240 天（越跌越买）
     // >6w 目标 0% → 不投；5.7-6w 目标 5% → 0.0208%/天；... <3.5w 已一次性
-    let baseRatio = tierData ? tierData.median / 240 : 0;
+    let baseRatio = tierData ? tierData.median / distributeDays : 0;
     if (baseRatio <= 0) {
       // 方案 A：>6w 观望档时，信号强按 5.7-6w 同档（5%/240）应急定投，信号弱不投
       const strongSignal = (signal === 'superbuy' || signal === 'buy' || signal === 'dca');
       if (strongSignal) {
-        baseRatio = 5 / 240;  // 应急最小定投（同 5.7-6w 档）
+        baseRatio = 5 / distributeDays;  // 应急最小定投（同 5.7-6w 档）
       } else {
         return { amount: 0, baseRatio: 0, multiplier, tier: tierLabel, reason: '价格过高（>6w）+ 信号弱（' + signal + '），不定投' + szLabel, isLump: false };
       }
@@ -3095,7 +3102,7 @@
                        signal === 'buy' ? '加仓 ×1.2' :
                        signal === 'dca' ? '定投 ×1.0' :
                        signal === 'caution' ? '警惕 ×0.7' : '等待 ×0.3';
-    const tierInfo = tierData && tierData.median > 0 ? '目标' + tierData.median + '%/240天' : '应急 5%/240天';
+    const tierInfo = tierData && tierData.median > 0 ? '目标' + tierData.median + '%/' + distributeDays + '天' : '应急 5%/' + distributeDays + '天';
     return { amount: actualFinal, baseRatio, multiplier, tier: tierLabel, reason: signalText + ' · ' + tierInfo + ' · 加仓' + sigObj.counts.buy + '票' + szLabel, isLump: false };
   }
 
@@ -3228,7 +3235,7 @@
     tbody.innerHTML = '';
     PRICE_TIERS.forEach(t => {
       const isActive = cur && cur.id === t.id;
-      const dailyBase = t.median > 0 && t.median < 100 ? t.median / 240 : 0;  // 越跌越买：每档不同基础%
+      const dailyBase = t.median > 0 && t.median < 100 ? t.median / distributeDays : 0;  // 越跌越买：每档不同基础%
       const dailyAmount = dailyBase / 100 * total;
       const tr = document.createElement('tr');
       if (isActive) tr.classList.add('current-level');
@@ -3367,6 +3374,17 @@
       render();
     });
   }
+  // 分摊天数（自定义定投周期）
+  const daysInputEl = document.getElementById('daysInput');
+  if (daysInputEl) {
+    daysInputEl.value = String(distributeDays);
+    daysInputEl.addEventListener('input', () => {
+      const v = parseInt(daysInputEl.value, 10);
+      distributeDays = (v && v >= 30) ? v : 248;
+      localStorage.setItem('dca_distribute_days', String(distributeDays));
+      render();
+    });
+  }
   document.getElementById('exportBtn').addEventListener('click', downloadJSON);
   document.getElementById('recalcBtn').addEventListener('click', () => {
     console.log('重算: totalCapital =', document.getElementById('totalCapital').value);
@@ -3484,6 +3502,7 @@
       const capital = document.getElementById('initCapital').value;
       const existingBtc = document.getElementById('initExistingBtc').value;
       const existingAvg = document.getElementById('initExistingAvg').value;
+      const initDaysVal = document.getElementById('initDays').value;
       if (!user) { alert('请填用户名'); return; }
       if (!/^[a-zA-Z0-9_\-]+$/.test(user)) { alert('用户名只能字母、数字、下划线、短横线'); return; }
       if (!key) { alert('请填密码'); return; }
@@ -3493,6 +3512,7 @@
       localStorage.setItem('dca_capital', capital);
       if (existingBtc) localStorage.setItem('dca_existing_btc', existingBtc);
       if (existingAvg) localStorage.setItem('dca_existing_avg', existingAvg);
+      if (initDaysVal) localStorage.setItem('dca_distribute_days', initDaysVal);
       location.reload();
     });
   } else {
