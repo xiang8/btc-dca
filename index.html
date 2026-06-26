@@ -859,10 +859,6 @@
     </div>
     <div class="input-group">
       <label>&nbsp;</label>
-      <button id="applyUserBtn" class="bind-btn" style="background:linear-gradient(135deg,#10b981 0%,#059669 100%);color:#fff;">✓ 应用用户名</button>
-    </div>
-    <div class="input-group">
-      <label>&nbsp;</label>
       <button id="exportBtn" class="bind-btn">📥 导出 JSON</button>
     </div>
     <div class="input-group">
@@ -3412,7 +3408,10 @@
     render();
   }
 
-  document.getElementById('totalCapital').addEventListener('input', render);
+  document.getElementById('totalCapital').addEventListener('input', () => {
+    localStorage.setItem('dca_capital', document.getElementById('totalCapital').value);
+    render();
+  });
   // 已持仓 + 均价（可随时改）
   const existingBtcInput = document.getElementById('existingBtcInput');
   const existingAvgInput = document.getElementById('existingAvgInput');
