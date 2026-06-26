@@ -153,6 +153,66 @@
   @media (max-width: 900px) {
     .indicator-grid { grid-template-columns: repeat(2, 1fr); }
   }
+  /* === 手机适配（微信内置浏览器 / 移动端） === */
+  @media (max-width: 768px) {
+    body { padding: 10px; }
+    .container { padding: 0; }
+    header { flex-direction: column; align-items: flex-start; gap: 4px; }
+    h1 { font-size: 18px; }
+    .subtitle { font-size: 11px; }
+    .last-update { font-size: 11px; }
+
+    .config-panel { flex-direction: column; gap: 8px; }
+    .config-panel .input-group { width: 100%; }
+    .config-panel .input-group label { font-size: 11px; }
+    .config-panel input { width: 100%; padding: 10px 12px; font-size: 14px; }
+    .bind-btn { width: 100%; padding: 10px; font-size: 13px; }
+
+    .signal-bar { grid-template-columns: 1fr; gap: 10px; }
+    .price-card, .signal-card { padding: 14px; }
+    .price-value { font-size: 28px; }
+    .signal-main { font-size: 24px; }
+    .detail-btn { font-size: 11px; padding: 4px 10px; }
+    .signal-scores { font-size: 11px; gap: 6px; }
+
+    .today-card { grid-template-columns: 1fr 1fr; gap: 12px; padding: 14px; }
+    .today-item .value { font-size: 16px; }
+    .today-item .value.big { font-size: 22px; }
+    .today-item .label { font-size: 9px; }
+    .today-item .sub { font-size: 10px; }
+
+    .matrix-wrap, .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .matrix-table th, .matrix-table td,
+    .result-table th, .result-table td,
+    .detail-table th, .detail-table td { padding: 6px 8px; font-size: 11px; white-space: nowrap; }
+
+    .tab-bar { gap: 2px; }
+    .tab-btn { padding: 8px 10px; font-size: 12px; }
+
+    .tier-controls { flex-direction: column; align-items: stretch; gap: 8px; }
+    .tier-controls select { width: 100%; }
+
+    .tier-table .col-range { font-size: 13px; }
+    .tier-table .col-pos, .tier-table .col-delta, .tier-table .col-amount,
+    .tier-table .col-note, .tier-table .col-action { font-size: 11px; }
+
+    .modal-content { width: 98%; max-height: 96vh; margin: 1vh auto; }
+    .modal-header h2 { font-size: 13px; }
+    .modal-tabs .modal-tab { padding: 5px 10px; font-size: 11px; }
+    #detailIframe { height: 75vh; }
+
+    .indicator-help { padding: 12px; }
+    .help-card h4 { font-size: 12px; }
+    .help-card p { font-size: 11px; line-height: 1.6; }
+
+    .progress-row .lbl, .progress-row .val { font-size: 12px; }
+
+    .footer-note p { font-size: 11px; line-height: 1.6; }
+
+    #vanta-bg::after { background: rgba(10,14,26,0.7); }
+
+    button { min-height: 36px; }
+  }
   .ind-card {
     background: var(--card); padding: 12px;
     border-radius: 8px; border: 1px solid var(--border);
