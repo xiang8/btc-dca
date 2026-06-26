@@ -968,6 +968,7 @@
     <div class="history-header">
       <span>执行历史</span>
       <span id="historyCount" style="color:var(--dim);font-weight:400;">0 条</span>
+      <span id="historyAvgPrice" style="color:var(--gold);font-weight:600;font-family:'JetBrains Mono',monospace;"></span>
     </div>
     <div class="history-list" id="historyList">
       <div class="empty-state">还没有执行记录</div>
@@ -3197,6 +3198,22 @@
     const h = getHistory();
     const list = document.getElementById('historyList');
     document.getElementById('historyCount').textContent = h.length + ' 条';
+
+    // 加权均价（按金额加权）
+    const avgEl = document.getElementById('historyAvgPrice');
+    if (avgEl) {
+      const validRecords = h.filter(r => r.price > 0 && r.amount > 0);
+      if (validRecords.length > 0) {
+        const totalAmount = validRecords.reduce((s, r) => s + r.amount, 0);
+        const weightedSum = validRecords.reduce((s, r) => s + r.price * r.amount, 0);
+        const avgPrice = weightedSum / totalAmount;
+        const totalBtc = totalAmount / avgPrice;
+        avgEl.innerHTML = '· 加权均价 $' + fmtPrice(avgPrice) + ' · 持仓 ' + totalBtc.toFixed(6) + ' BTC';
+      } else {
+        avgEl.textContent = '';
+      }
+    }
+
     if (h.length === 0) {
       list.innerHTML = '<div class="empty-state">还没有执行记录</div>';
       return;
