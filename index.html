@@ -82,6 +82,11 @@
     transition: border-color 0.5s, box-shadow 0.5s;
     position: relative;
   }
+  .signal-card.superbuy {
+    border-color: #16a34a;
+    box-shadow: 0 0 28px rgba(22, 163, 74, 0.3);
+    background: linear-gradient(135deg, #052e16 0%, #14532d 100%);
+  }
   .signal-card.buy {
     border-color: var(--green);
     box-shadow: 0 0 24px rgba(34, 197, 94, 0.15);
@@ -92,11 +97,18 @@
     box-shadow: 0 0 24px rgba(59, 130, 246, 0.15);
     background: linear-gradient(135deg, #0d1f2a 0%, #143043 100%);
   }
+  .signal-card.caution {
+    border-color: var(--yellow);
+    box-shadow: 0 0 24px rgba(251, 191, 36, 0.15);
+    background: linear-gradient(135deg, #422006 0%, #713f12 100%);
+  }
   .signal-card.wait { border-color: var(--dim2); }
   .signal-label { font-size: 10px; color: var(--dim); text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 6px; }
   .signal-main { font-size: 32px; font-weight: 800; margin-bottom: 6px; }
+  .signal-main.superbuy { color: #22c55e; text-shadow: 0 0 12px rgba(34, 197, 94, 0.5); }
   .signal-main.buy { color: var(--green); }
   .signal-main.dca { color: var(--blue); }
+  .signal-main.caution { color: var(--yellow); }
   .signal-main.wait { color: var(--dim); }
   .signal-scores {
     display: flex; justify-content: center; gap: 10px;
@@ -500,9 +512,12 @@
     border-radius: 8px; font-size: 11px; font-weight: 700;
     margin-left: 6px;
   }
-  .multiplier-badge.x15 { background: rgba(34, 197, 94, 0.2); color: var(--green); }
+  .multiplier-badge.x15 { background: rgba(34, 197, 94, 0.25); color: #22c55e; font-weight: 700; }
+  .multiplier-badge.x12 { background: rgba(34, 197, 94, 0.18); color: var(--green); }
   .multiplier-badge.x10 { background: rgba(59, 130, 246, 0.2); color: var(--blue); }
+  .multiplier-badge.x07 { background: rgba(251, 191, 36, 0.2); color: var(--yellow); }
   .multiplier-badge.x05 { background: rgba(107, 114, 128, 0.2); color: var(--dim); }
+  .multiplier-badge.x03 { background: rgba(107, 114, 128, 0.15); color: var(--dim2); }
 
   /* === 首次初始化界面 === */
   .init-overlay {
@@ -2273,8 +2288,9 @@
   };
 
   // 信号倍数
+  // 信号倍数（5 档细分）
   const SIGNAL_MULTIPLIERS = {
-    buy: 1.5, dca: 1.0, wait: 0.5
+    superbuy: 1.5, buy: 1.2, dca: 1.0, caution: 0.7, wait: 0.3
   };
 
   // 指标配置
@@ -2744,17 +2760,27 @@
       counts[zone.signal]++;
       details[id] = { signal: zone.signal, label: zone.label, value: val };
     });
-    let maxSignal = 'wait', maxScore = -1;
-    Object.entries(scores).forEach(([s, v]) => {
-      if (v > maxScore) { maxScore = v; maxSignal = s; }
-    });
     const total = scores.buy + scores.dca + scores.wait;
+    const buyPct = total > 0 ? scores.buy / total : 0;
+    const dcaPct = total > 0 ? scores.dca / total : 0;
+    const waitPct = total > 0 ? scores.wait / total : 0;
+
+    // 5 档细分
+    let signal;
+    if (total === 0) signal = 'wait';
+    else if (buyPct >= 0.70) signal = 'superbuy';              // 加仓票 ≥ 70%
+    else if (buyPct >= 0.50) signal = 'buy';                    // 加仓票 50-70%
+    else if (dcaPct > Math.max(buyPct, waitPct)) {
+      signal = counts.buy >= 2 ? 'dca' : 'caution';             // 定投占多：加仓≥2票→定投，否则警惕
+    } else signal = 'wait';
+
     return {
-      signal: total > 0 ? maxSignal : 'wait',
+      signal,
+      multiplier: SIGNAL_MULTIPLIERS[signal],
       scores: {
-        buy: total > 0 ? Math.round(scores.buy / total * 100) : 0,
-        dca: total > 0 ? Math.round(scores.dca / total * 100) : 0,
-        wait: total > 0 ? Math.round(scores.wait / total * 100) : 0
+        buy: Math.round(buyPct * 100),
+        dca: Math.round(dcaPct * 100),
+        wait: Math.round(waitPct * 100)
       },
       counts,
       noData,
@@ -2779,7 +2805,13 @@
     const main = document.getElementById('signalMain');
     card.className = 'signal-card ' + sig.signal;
     main.className = 'signal-main ' + sig.signal;
-    const labels = { buy: '🟢 加仓', dca: '🔵 定投', wait: '⚪ 等待' };
+    const labels = {
+      superbuy: '🚀 超强仓',
+      buy: '🟢 加仓',
+      dca: '🔵 定投',
+      caution: '🟡 警惕',
+      wait: '⚪ 等待'
+    };
     main.textContent = labels[sig.signal];
     document.getElementById('scoreBuy').textContent = '🟢 加仓 ' + sig.counts.buy + ' 票 / ' + sig.scores.buy + '%';
     document.getElementById('scoreDca').textContent = '🔵 定投 ' + sig.counts.dca + ' 票 / ' + sig.scores.dca + '%';
@@ -2907,8 +2939,10 @@
 
     // 用 innerHTML 一次性生成 multEl（含 multBadge span），避免 textContent 清空 span
     const multText = today.isLump ? '一次性' : '×' + today.multiplier.toFixed(1);
-    const badgeClass = today.isLump ? 'x15' : (today.multiplier === 1.5 ? '15' : today.multiplier === 1.0 ? '10' : '05');
-    const badgeText = today.isLump ? 'LUMP' : (sig.signal === 'buy' ? '加仓' : sig.signal === 'dca' ? '定投' : '等待');
+    const badgeClassMap = { superbuy: 'x15', buy: 'x12', dca: 'x10', caution: 'x07', wait: 'x03' };
+    const badgeTextMap = { superbuy: '超强仓', buy: '加仓', dca: '定投', caution: '警惕', wait: '等待' };
+    const badgeClass = today.isLump ? 'x15' : (badgeClassMap[sig.signal] || 'x10');
+    const badgeText = today.isLump ? 'LUMP' : (badgeTextMap[sig.signal] || sig.signal);
     multEl.innerHTML = multText + '<span class="multiplier-badge ' + badgeClass + '" id="multBadge">' + badgeText + '</span>';
 
     document.getElementById('signalReason').textContent = today.reason;
