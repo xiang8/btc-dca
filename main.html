@@ -2372,6 +2372,7 @@
   // 分批挂单状态
   let tierBatchCount = 3;
   let tierOffsets = [];   // 每档的随机零头缓存 [[{priceOff},...], ...]
+  let expandedTiers = new Set();   // 展开状态缓存（避免定时刷新时收回）
 
   function generateTierOffsets() {
     tierOffsets = PRICE_TIERS.map(t => {
@@ -2413,7 +2414,7 @@
         '<td class="col-delta">' + (deltaPct > 0 ? deltaPct + '%' : '—') + '</td>' +
         '<td class="col-amount">' + (tierAmount > 0 ? '$' + fmtMoney(tierAmount) : '—') + '</td>' +
         '<td class="col-note">' + t.note + '</td>' +
-        '<td class="col-action">' + (t.median > 0 && total > 0 && t.max !== Infinity ? '<button class="expand-btn" data-tier-id="' + t.id + '" type="button">▼</button>' : '') + '</td>';
+        '<td class="col-action">' + (t.median > 0 && total > 0 && t.max !== Infinity ? '<button class="expand-btn" data-tier-id="' + t.id + '" type="button">' + (expandedTiers.has(t.id) ? '▲' : '▼') + '</button>' : '') + '</td>';
       tbody.appendChild(tr);
 
       // 明细行（默认隐藏）
@@ -2421,7 +2422,7 @@
         const detailTr = document.createElement('tr');
         detailTr.className = 'tier-detail';
         detailTr.dataset.tierDetail = t.id;
-        detailTr.hidden = true;
+        detailTr.hidden = !expandedTiers.has(t.id);
 
         const offsets = tierOffsets[i] || [];
         const lines = [];
@@ -2462,14 +2463,16 @@
       }
     });
 
-    // 绑定展开按钮
+    // 绑定展开按钮（维护展开状态集合）
     tbody.querySelectorAll('.expand-btn').forEach(btn => {
       btn.addEventListener('click', () => {
-        const id = btn.dataset.tierId;
+        const id = +btn.dataset.tierId;
         const detail = tbody.querySelector('.tier-detail[data-tier-detail="' + id + '"]');
         if (detail) {
           detail.hidden = !detail.hidden;
           btn.textContent = detail.hidden ? '▼' : '▲';
+          if (detail.hidden) expandedTiers.delete(id);
+          else expandedTiers.add(id);
         }
       });
     });
