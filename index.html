@@ -947,8 +947,8 @@
         <tr>
           <th>价格区间</th>
           <th>目标累计仓位</th>
-          <th>每日基础 %</th>
-          <th>每日金额（本金 ×）</th>
+          <th>今日实际 %（含信号倍数）</th>
+          <th>今日金额（本金 ×）</th>
           <th>状态</th>
         </tr>
       </thead>
@@ -2502,7 +2502,7 @@
     { id: 3, min: 45000, max: 51000,    label: '4.5w–5.1w', pos: '30%–40%',   note: '分批建仓',  tone: 'buy',   median: 35,  deltaMin: 20, mult: 2    },
     { id: 4, min: 40000, max: 45000,    label: '4.0w–4.5w', pos: '50%–60%',   note: '重仓区',    tone: 'buy',   median: 55,  deltaMin: 20, mult: 3    },
     { id: 5, min: 35000, max: 40000,    label: '3.5w–4.0w', pos: '70%–80%',   note: '恐慌区',    tone: 'buy',   median: 75,  deltaMin: 20, mult: 4    },
-    { id: 6, min: 0,     max: 35000,    label: '< 3.5w',    pos: '100%',      note: '极限恐慌',  tone: 'allin', median: 100, deltaMin: 25, mult: 'lump' }
+    { id: 6, min: 0,     max: 35000,    label: '< 3.5w',    pos: '100%',      note: '极限恐慌',  tone: 'allin', median: 100, deltaMin: 25, mult: 8 }
   ];
 
   function getCurrentPriceTier(price) {
@@ -3223,21 +3223,22 @@
     if (!tbody) return;
     const total = parseFloat(document.getElementById('totalCapital') && document.getElementById('totalCapital').value) || 0;
     const cur = PRICE_TIERS.find(t => currentPrice >= t.min && currentPrice < t.max);
+    // 当前 signalMult（每行叠加这个算实际%）
+    const sigInfo = computeSignal();
+    const sigMult = SIGNAL_MULTIPLIERS[sigInfo.signal] || 0;
     tbody.innerHTML = '';
     PRICE_TIERS.forEach(t => {
       const isActive = cur && cur.id === t.id;
-      // 每日% = (100/distributeDays) × 档位加速倍数 mult
-      const isLumpTier = t.mult === 'lump';
-      const dailyBase = !isLumpTier && typeof t.mult === 'number' ? (100 / distributeDays) * t.mult : 0;
-      const dailyAmount = dailyBase / 100 * total;
+      const tierMult = typeof t.mult === 'number' ? t.mult : 0;
+      // 今日实际% = (100/distributeDays) × mult × signalMult
+      const dailyActual = (100 / distributeDays) * tierMult * sigMult;
+      const dailyAmount = dailyActual / 100 * total;
       const tr = document.createElement('tr');
       if (isActive) tr.classList.add('current-level');
       const marker = isActive ? '👉 ' : '';
-      const dailyDisplay = t.mult === 0 ? '—' :
-                           isLumpTier ? '一次性' :
-                           dailyBase.toFixed(4) + '% (×' + t.mult + ')';
-      const amountDisplay = t.mult === 0 ? '—' :
-                           isLumpTier ? (total > 0 ? '$' + fmtMoney(total) : '—') :
+      const dailyDisplay = tierMult === 0 ? '—' :
+                           dailyActual.toFixed(4) + '% (×' + t.mult + '×' + sigMult.toFixed(1) + ')';
+      const amountDisplay = tierMult === 0 ? '—' :
                            (dailyAmount > 0 ? '$' + fmtMoney(dailyAmount) : '—');
       tr.innerHTML =
         '<td class="row-label">' + marker + t.label + '</td>' +
