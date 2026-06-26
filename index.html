@@ -3093,7 +3093,7 @@
                        signal === 'dca' ? '定投 ×1.0' :
                        signal === 'caution' ? '警惕 ×0.7' : '等待 ×0.3';
     const usedMult = emergency ? 0.5 : tierMult;
-    const tierInfo = '每日 ' + baseRatio.toFixed(4) + '% 总资金（100/' + distributeDays + '天 × ' + usedMult + 'x）';
+    const tierInfo = '每日 ' + baseRatio.toFixed(4) + '% 总资金（100%/' + distributeDays + '天 × ' + usedMult + 'x）';
     return { amount: actualFinal, baseRatio, multiplier, tier: tierLabel, reason: signalText + ' · ' + tierInfo + ' · 加仓' + sigObj.counts.buy + '票', isLump: false };
   }
 
