@@ -2466,8 +2466,8 @@
   // 7 档区间 → 目标累计仓位（价格越低，仓位越重）
   // median: 累计仓位中位数（用于显示）/ deltaMin: 该档新增仓位 %（中位数差值）
   const PRICE_TIERS = [
-    { id: 0, min: 60000, max: Infinity, label: '≥ 6.0w',     pos: '0%',        note: '观望',      tone: 'wait',  median: 0,   deltaMin: 0  },
-    { id: 1, min: 57000, max: 60000,    label: '5.7w–6.0w', pos: '5%',        note: '试探',      tone: 'dca',   median: 5,   deltaMin: 5  },
+    { id: 0, min: 60001, max: Infinity, label: '> 6.0w',     pos: '0%',        note: '观望',      tone: 'wait',  median: 0,   deltaMin: 0  },
+    { id: 1, min: 57000, max: 60001,    label: '5.7w–6.0w', pos: '5%',        note: '试探',      tone: 'dca',   median: 5,   deltaMin: 5  },
     { id: 2, min: 51000, max: 57000,    label: '5.1w–5.7w', pos: '10%–20%',   note: '预留子弹',  tone: 'dca',   median: 15,  deltaMin: 10 },
     { id: 3, min: 45000, max: 51000,    label: '4.5w–5.1w', pos: '30%–40%',   note: '分批建仓',  tone: 'buy',   median: 35,  deltaMin: 20 },
     { id: 4, min: 40000, max: 45000,    label: '4.0w–4.5w', pos: '50%–60%',   note: '重仓区',    tone: 'buy',   median: 55,  deltaMin: 20 },
@@ -2964,14 +2964,12 @@
     if (szEl) {
       const sz = seanzhaoCache;
       if (sz && sz.totalScore != null) {
-        const info = getSzMultiplier(sz.totalScore);
         const color = sz.totalScore >= 80 ? '#22c55e' :
                       sz.totalScore >= 60 ? '#10b981' :
                       sz.totalScore >= 40 ? 'var(--dim)' :
                       sz.totalScore >= 20 ? 'var(--yellow)' : 'var(--red)';
         szEl.innerHTML = '🎯 综合评分 <b style="color:' + color + ';font-size:14px">' + sz.totalScore + '/100</b>' +
-                         ' · ' + (info ? info.label : '') + ' ×' + (info ? info.mult.toFixed(1) : '--') +
-                         (sz.zone ? ' · ' + sz.zone : '') +
+                         ' · ' + (sz.zone || '') +
                          (sz.dataDate ? ' · 数据 ' + sz.dataDate : '');
       } else {
         szEl.textContent = '🎯 综合评分：暂无数据（Worker /seanzhao 未就绪）';
@@ -3023,16 +3021,13 @@
 
   function computeTodayAmount(price, signal) {
     const total = parseFloat(document.getElementById('totalCapital').value) || 0;
-    const origMult = SIGNAL_MULTIPLIERS[signal];
+    const multiplier = SIGNAL_MULTIPLIERS[signal];  // 纯信号倍数，不再融合综合评分
 
-    // 融合 seanzhao 评分倍数（取较小值，最高 1.5x）
+    // 综合评分仅用于显示参考（不影响定投额）
     const szData = seanzhaoCache;
-    const szInfo = szData && szData.totalScore != null ? getSzMultiplier(szData.totalScore) : null;
-    const szMult = szInfo ? szInfo.mult : null;
-    const multiplier = szMult != null ? Math.min(origMult, szMult) : origMult;
-    const szLabel = szInfo ? ' · 综合' + szData.totalScore + '分×' + szMult.toFixed(1) : '';
+    const szLabel = (szData && szData.totalScore != null) ? ' · 综合 ' + szData.totalScore + '/100' : '';
 
-    // 当前价格档位（仅用于参考显示，不影响每日定投额）
+    // 当前价格档位
     const tierData = PRICE_TIERS.find(t => price >= t.min && price < t.max);
     const tierLabel = tierData ? tierData.label : '-';
 
@@ -3044,9 +3039,10 @@
       return { amount: 0, baseRatio: 0, multiplier, tier: tierLabel, reason: '已投满 100%，停止定投', isLump: false };
     }
 
-    // 综合评分顶部（评分<20）→ 停投
-    if (szMult === 0) {
-      return { amount: 0, baseRatio: 0, multiplier: 0, tier: tierLabel, reason: '综合评分顶部，停投' + szLabel, isLump: false };
+    // 加仓票 < 4 → 停投（强制规则，不论价格档位）
+    const sigObj = computeSignal();
+    if (sigObj.counts.buy < 4) {
+      return { amount: 0, baseRatio: 0, multiplier: 0, tier: tierLabel, reason: '加仓票数 ' + sigObj.counts.buy + ' < 4，停投' + szLabel, isLump: false };
     }
 
     // 极限恐慌档位（<3.5w）→ 一次性打光剩余
@@ -3056,10 +3052,10 @@
     }
 
     // 标准定投：基础% = 当前价格档位的目标仓位% / 240 天（越跌越买）
-    // ≥6w 目标 0% → 不投；5.7-6w 目标 5% → 0.0208%/天；... <3.5w 已一次性
-    const baseRatio = tierData.median / 240;
+    // >6w 目标 0% → 不投；5.7-6w 目标 5% → 0.0208%/天；... <3.5w 已一次性
+    const baseRatio = tierData ? tierData.median / 240 : 0;
     if (baseRatio <= 0) {
-      return { amount: 0, baseRatio: 0, multiplier, tier: tierLabel, reason: '价格过高（≥6w 观望档），不定投' + szLabel, isLump: false };
+      return { amount: 0, baseRatio: 0, multiplier, tier: tierLabel, reason: '价格过高（>6w 观望档），不定投' + szLabel, isLump: false };
     }
     const baseAmount = baseRatio / 100 * total;
     const finalAmount = baseAmount * multiplier;
@@ -3069,7 +3065,7 @@
                        signal === 'buy' ? '加仓 ×1.2' :
                        signal === 'dca' ? '定投 ×1.0' :
                        signal === 'caution' ? '警惕 ×0.7' : '等待 ×0.3';
-    return { amount: actualFinal, baseRatio, multiplier, tier: tierLabel, reason: signalText + ' · 目标' + tierData.median + '%/240天' + szLabel, isLump: false };
+    return { amount: actualFinal, baseRatio, multiplier, tier: tierLabel, reason: signalText + ' · 目标' + tierData.median + '%/240天 · 加仓' + sigObj.counts.buy + '票' + szLabel, isLump: false };
   }
 
   function renderToday() {
