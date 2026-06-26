@@ -3055,8 +3055,12 @@
       return { amount: lumpAmount, baseRatio: 100, multiplier: 1, tier: tierLabel, reason: '极限恐慌一次性打光剩余' + szLabel, isLump: true };
     }
 
-    // 标准定投：基础 100% / 240 天 ≈ 0.4167%/天（固定，不分价格档位）
-    const baseRatio = 100 / 240;
+    // 标准定投：基础% = 当前价格档位的目标仓位% / 240 天（越跌越买）
+    // ≥6w 目标 0% → 不投；5.7-6w 目标 5% → 0.0208%/天；... <3.5w 已一次性
+    const baseRatio = tierData.median / 240;
+    if (baseRatio <= 0) {
+      return { amount: 0, baseRatio: 0, multiplier, tier: tierLabel, reason: '价格过高（≥6w 观望档），不定投' + szLabel, isLump: false };
+    }
     const baseAmount = baseRatio / 100 * total;
     const finalAmount = baseAmount * multiplier;
     const actualFinal = Math.min(finalAmount, totalLimit - allSpent);
@@ -3065,7 +3069,7 @@
                        signal === 'buy' ? '加仓 ×1.2' :
                        signal === 'dca' ? '定投 ×1.0' :
                        signal === 'caution' ? '警惕 ×0.7' : '等待 ×0.3';
-    return { amount: actualFinal, baseRatio, multiplier, tier: tierLabel, reason: signalText + ' · 100%/240天' + szLabel, isLump: false };
+    return { amount: actualFinal, baseRatio, multiplier, tier: tierLabel, reason: signalText + ' · 目标' + tierData.median + '%/240天' + szLabel, isLump: false };
   }
 
   function renderToday() {
@@ -3194,23 +3198,25 @@
     if (!tbody) return;
     const total = parseFloat(document.getElementById('totalCapital') && document.getElementById('totalCapital').value) || 0;
     const cur = PRICE_TIERS.find(t => currentPrice >= t.min && currentPrice < t.max);
-    const baseRatio = 100 / 240;  // 固定每日基础%
-    const dailyAmount = baseRatio / 100 * total;
     tbody.innerHTML = '';
     PRICE_TIERS.forEach(t => {
       const isActive = cur && cur.id === t.id;
-      const targetAmount = total * t.median / 100;  // 该档位目标累计金额
+      const dailyBase = t.median > 0 && t.median < 100 ? t.median / 240 : 0;  // 越跌越买：每档不同基础%
+      const dailyAmount = dailyBase / 100 * total;
       const tr = document.createElement('tr');
       if (isActive) tr.classList.add('current-level');
       const marker = isActive ? '👉 ' : '';
       const dailyDisplay = t.median === 0 ? '—' :
                            t.median === 100 ? '一次性' :
-                           baseRatio.toFixed(4) + '%';
+                           dailyBase.toFixed(4) + '%';
+      const amountDisplay = t.median === 0 ? '—' :
+                           t.median === 100 ? (total > 0 ? '$' + fmtMoney(total) : '—') :
+                           (dailyAmount > 0 ? '$' + fmtMoney(dailyAmount) : '—');
       tr.innerHTML =
         '<td class="row-label">' + marker + t.label + '</td>' +
         '<td>' + t.pos + '</td>' +
         '<td>' + dailyDisplay + '</td>' +
-        '<td>' + (t.median === 0 ? '—' : (t.median === 100 ? (total > 0 ? '$' + fmtMoney(total) : '—') : (dailyAmount > 0 ? '$' + fmtMoney(dailyAmount) : '—'))) + '</td>' +
+        '<td>' + amountDisplay + '</td>' +
         '<td>' + t.note + '</td>';
       tbody.appendChild(tr);
     });
