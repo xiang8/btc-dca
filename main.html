@@ -2725,11 +2725,11 @@
   });
 
   // ============== Cloudflare Workers 云端同步（多设备） ==============
-  // 用户填：Cloudflare Worker 部署后的 URL
-  const WORKER_URL = 'https://btc-dca.hjvjbcjjvnk.workers.dev';
+  // WORKER_URL 用同域（手机/电脑/自定义域名都走当前域，不依赖 workers.dev）
+  const WORKER_URL = '';
 
   function isWorkerConfigured() {
-    return WORKER_URL && !WORKER_URL.includes('YOUR-WORKER');
+    return true;
   }
 
   // 用户 ID：URL 参数 > localStorage；都没有留空让用户自己输入
