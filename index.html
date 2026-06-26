@@ -3005,6 +3005,8 @@
         if (id === 'fng') valDisplay = d.value.toFixed(0);
         else if (id === 'wma200') valDisplay = d.value.toFixed(2) + 'x';
         else if (id === 'sopr') valDisplay = d.value.toFixed(3);
+        else if (id === 's3loss') valDisplay = d.value.toFixed(1) + '%';
+        else if (id === 's4flow') valDisplay = d.value.toFixed(1) + 'B';
         else valDisplay = d.value.toFixed(2);
       }
       cardEl.innerHTML =
