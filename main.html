@@ -141,8 +141,11 @@
   /* === 指标矩阵 === */
   .indicator-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    grid-template-columns: repeat(5, 1fr);
     gap: 10px; margin-bottom: 16px;
+  }
+  @media (max-width: 900px) {
+    .indicator-grid { grid-template-columns: repeat(2, 1fr); }
   }
   .ind-card {
     background: var(--card); padding: 12px;
@@ -454,6 +457,23 @@
     font-weight: 400;
     font-size: 11px;
     margin-left: 8px;
+  }
+  .modal-header-row {
+    display: flex; justify-content: space-between; align-items: center;
+    gap: 12px; width: 100%;
+  }
+  .modal-tabs { display: flex; gap: 4px; margin-bottom: 6px; }
+  .modal-tab {
+    background: var(--card2); color: var(--dim);
+    border: 1px solid var(--border);
+    padding: 6px 14px; border-radius: 6px;
+    cursor: pointer; font-size: 12px; font-weight: 600;
+    font-family: inherit;
+  }
+  .modal-tab:hover { color: var(--text); }
+  .modal-tab.active {
+    background: var(--gold); color: #fff;
+    border-color: var(--gold);
   }
   .source-note {
     font-size: 11px; color: var(--dim); margin-top: 4px;
@@ -784,10 +804,7 @@
       <div class="price-change" id="btcChange">--</div>
     </div>
     <div class="signal-card wait" id="signalCard">
-      <div style="display:flex;gap:6px;justify-content:flex-end;">
-        <button id="detailBtn" class="detail-btn" title="查看完整链上指标">📊 完整看板 →</button>
-        <button id="seanzhaoBtn" class="detail-btn" title="查看子琦底部信号看板" onclick="window.open('https://btc.seanzhao.ai/','_blank')">🎯 子琦看板 →</button>
-      </div>
+      <button id="detailBtn" class="detail-btn" title="查看完整链上指标">📊 完整看板 →</button>
       <div class="signal-label">综合信号（10 指标加权 + 子琦评分）</div>
       <div class="signal-main wait" id="signalMain">加载中</div>
       <div class="vote-bar" id="voteBar"></div>
@@ -803,7 +820,7 @@
 
   <!-- 指标矩阵 -->
   <div class="section-title section-title-row">
-    <span>信号矩阵 · 7 链上指标</span>
+    <span>信号矩阵</span>
     <button id="indicatorHelpBtn" class="help-btn" type="button">❓ 指标说明</button>
   </div>
   <div class="indicator-grid" id="indicatorGrid">
@@ -1011,13 +1028,14 @@
   </div><!-- /tab-price -->
 
   <div class="footer-note">
-    <p><strong>📌 三维度策略</strong></p>
+    <p><strong>📌 多维度策略</strong></p>
     <p>1. <strong>价格维度</strong>：6→5→4→3 字头约 1:2:4:10 倍数（越低买越多）</p>
     <p>2. <strong>时间维度</strong>：试探期 1x → 加仓期 2x → 梭哈期 4x（越接近大底越激进）</p>
-    <p>3. <strong>信号维度</strong>：7 指标加权投票 → 加仓 ×1.5 / 定投 ×1.0 / 等待 ×0.5</p>
-    <p>4. <strong>阶段累计上限</strong>：试探 30% / 加仓 60% / 梭哈 90%</p>
-    <p>5. <strong>每日打卡</strong>：localStorage 本地保存</p>
-    <p>6. 数据源：Binance · alternative.me · mempool.space · looknode-proxy · btc-cache</p>
+    <p>3. <strong>信号维度</strong>：10 指标加权投票 → 超强仓 ×1.5 / 加仓 ×1.2 / 定投 ×1.0 / 警惕 ×0.7 / 等待 ×0.3</p>
+    <p>4. <strong>综合评分融合</strong>：子琦底部信号评分 0-100 → ×1.5/×1.2/×1.0/×0.5/×0，与信号倍数取较小值（最高 ×1.5，顶部停投）</p>
+    <p>5. <strong>阶段累计上限</strong>：试探 30% / 加仓 60% / 梭哈 90%</p>
+    <p>6. <strong>每日打卡</strong>：localStorage 本地 + Cloudflare KV 云端同步</p>
+    <p>7. 数据源：Binance · alternative.me · mempool.space · looknode-proxy · btc-cache · <a href="https://btc.seanzhao.ai/" target="_blank" rel="noopener" style="color:var(--gold);">btc.seanzhao.ai</a>（子琦）</p>
     <p style="margin-top:10px;padding:8px 12px;background:rgba(248,113,113,0.08);border-radius:6px;border-left:3px solid var(--red);color:var(--red);"><strong>⚠️ 免责声明</strong>：本工具仅作信息聚合与参考，<strong>不构成任何投资建议</strong>。加密货币投资有极高风险，可能损失全部本金。所有决策请独立判断，风险自担。</p>
   </div>
 </div>
@@ -1026,11 +1044,16 @@
 <div id="detailModal" class="modal">
   <div class="modal-content">
     <div class="modal-header">
-      <div>
-        <h2>📊 完整看板 <small>17 指标 · 矿机关机价 · STRC 飞轮 · 跌破概率</small></h2>
-        <p class="source-note">数据来源于神鱼老师 <a href="https://fuckbtc.com" target="_blank" rel="noopener">fuckbtc.com</a> · <a href="https://x.com/bitfish" target="_blank" rel="noopener">@bitfish</a></p>
+      <div class="modal-header-row">
+        <div>
+          <div class="modal-tabs">
+            <button class="modal-tab active" data-modal-tab="fish" type="button">🐟 神鱼看板</button>
+            <button class="modal-tab" data-modal-tab="sean" type="button">🎯 子琦看板</button>
+          </div>
+          <p class="source-note" id="modalSourceNote">数据来源于神鱼老师 <a href="https://fuckbtc.com" target="_blank" rel="noopener">fuckbtc.com</a> · <a href="https://x.com/bitfish" target="_blank" rel="noopener">@bitfish</a></p>
+        </div>
+        <button id="closeModalBtn">✕ 关闭</button>
       </div>
-      <button id="closeModalBtn">✕ 关闭</button>
     </div>
     <template id="cloneTemplate">
 <!DOCTYPE html>
@@ -2456,9 +2479,10 @@
     return PRICE_TIERS.find(t => price >= t.min && price < t.max) || null;
   }
 
-  // 分批挂单状态
-  let tierBatchCount = 3;
-  let tierOffsets = [];   // 每档的随机零头缓存 [[{priceOff},...], ...]
+  // 分批挂单状态（从 localStorage 恢复，记忆上次选择：分批笔数 + 挂单零头）
+  let tierBatchCount = parseInt(localStorage.getItem('dca_tier_batch_count'), 10) || 3;
+  let tierOffsets = [];
+  try { tierOffsets = JSON.parse(localStorage.getItem('dca_tier_offsets') || '[]'); } catch (_) { tierOffsets = []; }
   let expandedTiers = new Set();   // 展开状态缓存（避免定时刷新时收回）
 
   function generateTierOffsets() {
@@ -2467,6 +2491,8 @@
       return Array.from({length: tierBatchCount}, () => ({
         priceOff: Math.floor(Math.random() * 50) + 1    // 1-50u 随机零头（避开整数墙）
       }));
+    });
+    try { localStorage.setItem('dca_tier_offsets', JSON.stringify(tierOffsets)); } catch (_) {}
     });
   }
 
@@ -2943,12 +2969,12 @@
                       sz.totalScore >= 60 ? '#10b981' :
                       sz.totalScore >= 40 ? 'var(--dim)' :
                       sz.totalScore >= 20 ? 'var(--yellow)' : 'var(--red)';
-        szEl.innerHTML = '🎯 子琦评分 <b style="color:' + color + ';font-size:14px">' + sz.totalScore + '/100</b>' +
+        szEl.innerHTML = '🎯 综合评分 <b style="color:' + color + ';font-size:14px">' + sz.totalScore + '/100</b>' +
                          ' · ' + (info ? info.label : '') + ' ×' + (info ? info.mult.toFixed(1) : '--') +
                          (sz.zone ? ' · ' + sz.zone : '') +
                          (sz.dataDate ? ' · 数据 ' + sz.dataDate : '');
       } else {
-        szEl.textContent = '🎯 子琦评分：暂无数据（Worker /seanzhao 未就绪）';
+        szEl.textContent = '🎯 综合评分：暂无数据（Worker /seanzhao 未就绪）';
       }
     }
 
@@ -3270,8 +3296,11 @@
   // 价格档位：分批笔数下拉 + 重新随机零头
   const batchSelect = document.getElementById('tierBatchCount');
   if (batchSelect) {
+    // 恢复上次选择
+    batchSelect.value = String(tierBatchCount);
     batchSelect.addEventListener('change', () => {
       tierBatchCount = parseInt(batchSelect.value, 10) || 1;
+      try { localStorage.setItem('dca_tier_batch_count', String(tierBatchCount)); } catch (_) {}
       generateTierOffsets();
       renderPriceTier();
     });
@@ -3336,12 +3365,27 @@
   const modal = document.getElementById('detailModal');
   document.getElementById('detailBtn').addEventListener('click', () => {
     modal.classList.add('open');
+    showModalTab('fish');
+  });
+  function showModalTab(tab) {
     const iframe = document.getElementById('detailIframe');
-    if (iframe.dataset.loaded !== '1') {
+    const note = document.getElementById('modalSourceNote');
+    document.querySelectorAll('.modal-tab').forEach(b => {
+      b.classList.toggle('active', b.dataset.modalTab === tab);
+    });
+    if (tab === 'fish') {
       const tpl = document.getElementById('cloneTemplate');
+      iframe.removeAttribute('src');
       iframe.srcdoc = tpl.innerHTML;
-      iframe.dataset.loaded = '1';
+      if (note) note.innerHTML = '数据来源于神鱼老师 <a href="https://fuckbtc.com" target="_blank" rel="noopener">fuckbtc.com</a> · <a href="https://x.com/bitfish" target="_blank" rel="noopener">@bitfish</a>';
+    } else if (tab === 'sean') {
+      iframe.removeAttribute('srcdoc');
+      iframe.src = WORKER_URL + '/seanzhao-page';
+      if (note) note.innerHTML = '数据来源于子琦 <a href="https://btc.seanzhao.ai/" target="_blank" rel="noopener">btc.seanzhao.ai</a> · <a href="https://x.com/Seanzhao1105" target="_blank" rel="noopener">@Seanzhao1105</a>';
     }
+  }
+  document.querySelectorAll('.modal-tab').forEach(b => {
+    b.addEventListener('click', () => showModalTab(b.dataset.modalTab));
   });
   document.getElementById('closeModalBtn').addEventListener('click', () => modal.classList.remove('open'));
   modal.addEventListener('click', (e) => { if (e.target === modal) modal.classList.remove('open'); });

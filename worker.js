@@ -166,6 +166,30 @@ export default {
       }
     }
 
+    // === 代理 seanzhao HTML 页面（iframe 嵌入用，去掉 X-Frame-Options） ===
+    if (request.method === 'GET' && path === '/seanzhao-page') {
+      try {
+        const r = await fetch('https://btc.seanzhao.ai/', {
+          headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
+        });
+        let html = await r.text();
+        // 简单清理：确保不让外部脚本注入到本域（保留原样，浏览器 iframe 隔离）
+        return new Response(html, {
+          headers: {
+            'Content-Type': 'text/html; charset=utf-8',
+            ...CORS_HEADERS,
+            'Cache-Control': 'public, max-age=3600'
+            // 故意不设 X-Frame-Options，允许 iframe 嵌入
+          }
+        });
+      } catch (e) {
+        return new Response('Failed to fetch seanzhao page: ' + e.message, {
+          status: 500,
+          headers: { 'Content-Type': 'text/html; charset=utf-8', ...CORS_HEADERS }
+        });
+      }
+    }
+
     // 其他 GET 请求：从静态资源取（main.html / index.html 等）
     if (request.method === 'GET' && env.ASSETS) {
       return env.ASSETS.fetch(request);
