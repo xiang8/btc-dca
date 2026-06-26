@@ -2888,12 +2888,11 @@
 
     const tag = document.getElementById('phaseTag');
     const multEl = document.getElementById('signalMultiplier');
-    const badge = document.getElementById('multBadge');
     const amountEl = document.getElementById('todayAmount');
     const ratioEl = document.getElementById('todayRatio');
     const card = document.getElementById('todayCard');
-    if (!tag || !multEl || !badge || !amountEl || !ratioEl || !card) {
-      console.warn('renderToday: missing required DOM (HTML 版本不一致？)');
+    if (!tag || !multEl || !amountEl || !ratioEl || !card) {
+      console.warn('renderToday: missing required DOM');
       return;
     }
     tag.className = 'phase-tag ' + phase;
@@ -2903,15 +2902,12 @@
     document.getElementById('priceTier').textContent = MATRIX[tier].label;
     document.getElementById('baseRatio').textContent = today.baseRatio > 0 ? '基础 ' + today.baseRatio + '% / 天' : '无基础定投';
 
-    if (today.isLump) {
-      multEl.textContent = '一次性';
-      badge.className = 'multiplier-badge x15';
-      badge.textContent = 'LUMP';
-    } else {
-      multEl.textContent = '×' + today.multiplier.toFixed(1);
-      badge.className = 'multiplier-badge x' + (today.multiplier === 1.5 ? '15' : today.multiplier === 1.0 ? '10' : '05');
-      badge.textContent = sig.signal === 'buy' ? '加仓' : sig.signal === 'dca' ? '定投' : '等待';
-    }
+    // 用 innerHTML 一次性生成 multEl（含 multBadge span），避免 textContent 清空 span
+    const multText = today.isLump ? '一次性' : '×' + today.multiplier.toFixed(1);
+    const badgeClass = today.isLump ? 'x15' : (today.multiplier === 1.5 ? '15' : today.multiplier === 1.0 ? '10' : '05');
+    const badgeText = today.isLump ? 'LUMP' : (sig.signal === 'buy' ? '加仓' : sig.signal === 'dca' ? '定投' : '等待');
+    multEl.innerHTML = multText + '<span class="multiplier-badge ' + badgeClass + '" id="multBadge">' + badgeText + '</span>';
+
     document.getElementById('signalReason').textContent = today.reason;
 
     if (today.amount > 0) {
