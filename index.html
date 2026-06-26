@@ -102,9 +102,15 @@
     box-shadow: 0 0 24px rgba(251, 191, 36, 0.15);
     background: linear-gradient(135deg, #422006 0%, #713f12 100%);
   }
+  .signal-card.sell {
+    border-color: var(--red);
+    box-shadow: 0 0 28px rgba(248, 113, 113, 0.3);
+    background: linear-gradient(135deg, #2a0606 0%, #5b0e0e 100%);
+  }
   .signal-card.wait { border-color: var(--dim2); }
   .signal-label { font-size: 10px; color: var(--dim); text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 6px; }
   .signal-main { font-size: 32px; font-weight: 800; margin-bottom: 6px; }
+  .signal-main.sell { color: var(--red); text-shadow: 0 0 12px rgba(248, 113, 113, 0.5); }
   .signal-main.superbuy { color: #22c55e; text-shadow: 0 0 12px rgba(34, 197, 94, 0.5); }
   .signal-main.buy { color: var(--green); }
   .signal-main.dca { color: var(--blue); }
@@ -539,6 +545,7 @@
     border-radius: 8px; font-size: 11px; font-weight: 700;
     margin-left: 6px;
   }
+  .multiplier-badge.x00 { background: rgba(248, 113, 113, 0.22); color: var(--red); font-weight: 700; }
   .multiplier-badge.x15 { background: rgba(34, 197, 94, 0.25); color: #22c55e; font-weight: 700; }
   .multiplier-badge.x12 { background: rgba(34, 197, 94, 0.18); color: var(--green); }
   .multiplier-badge.x10 { background: rgba(59, 130, 246, 0.2); color: var(--blue); }
@@ -750,9 +757,11 @@
       <input type="text" id="initUser" placeholder="用户名（字母、数字、-、_）" autocomplete="off">
       <input type="password" id="initKey" placeholder="密码（保护数据，请记好）" autocomplete="new-password">
       <input type="number" id="initCapital" placeholder="总资金 (USDT)" min="0" step="1000" required autocomplete="off">
+      <input type="number" id="initExistingBtc" placeholder="已持仓 BTC 数量（选填，如 0.4）" min="0" step="0.0001" autocomplete="off">
+      <input type="number" id="initExistingAvg" placeholder="已持仓均价 USD（选填，如 80000）" min="0" step="100" autocomplete="off">
     </div>
     <button id="initSubmit">开始使用 →</button>
-    <p class="init-note">设置后用户名密码不可改 · 多设备同步用相同的</p>
+    <p class="init-note">设置后用户名密码不可改 · 多设备同步用相同的 · 已持仓数据用于显示初始投入进度</p>
   </div>
 </div>
 
@@ -938,8 +947,12 @@
   <!-- 累计进度 -->
   <div class="section-title">累计投入进度</div>
   <div class="progress-section">
+    <div class="progress-row" id="existingPositionRow" style="display:none;">
+      <span class="lbl">已有持仓（初始）</span>
+      <span class="val" id="existingPositionText" style="color:var(--gold);">-</span>
+    </div>
     <div class="progress-row">
-      <span class="lbl">累计已投入</span>
+      <span class="lbl">累计已投入（含初始）</span>
       <span class="val" id="cumulativeAmount">$0</span>
     </div>
     <div class="progress-row">
@@ -1030,11 +1043,11 @@
 
   <div class="footer-note">
     <p><strong>📌 多维度策略</strong></p>
-    <p>1. <strong>价格维度</strong>：6→5→4→3 字头约 1:2:4:10 倍数（越低买越多）</p>
-    <p>2. <strong>时间维度</strong>：试探期 1x → 加仓期 2x → 梭哈期 4x（越接近大底越激进）</p>
-    <p>3. <strong>信号维度</strong>：10 指标加权投票 → 超强仓 ×1.5 / 加仓 ×1.2 / 定投 ×1.0 / 警惕 ×0.7 / 等待 ×0.3</p>
-    <p>4. <strong>综合评分融合</strong>：子琦底部信号评分 0-100 → ×1.5/×1.2/×1.0/×0.5/×0，与信号倍数取较小值（最高 ×1.5，顶部停投）</p>
-    <p>5. <strong>阶段累计上限</strong>：试探 30% / 加仓 60% / 梭哈 90%</p>
+    <p>1. <strong>价格维度</strong>：7 档目标仓位（>6w 0% → &lt;3.5w 100%），每日基础% = 目标仓位% / 240 天</p>
+    <p>2. <strong>信号维度</strong>：10 指标加权投票 → 超强仓 ×1.5 / 加仓 ×1.2 / 定投 ×1.0 / 警惕 ×0.7 / 等待 ×0.3 / <span style="color:var(--red);">减仓 ×0（≥7 票等待）</span></p>
+    <p>3. <strong>加仓票 &lt; 4 停投</strong>：加仓指标票数不足 4 票时强制不投</p>
+    <p>4. <strong>综合评分参考</strong>：子琦评分 0-100（仅显示，不参与计算）</p>
+    <p>5. <strong>总上限 100%</strong>：投满总资金停止</p>
     <p>6. <strong>每日打卡</strong>：localStorage 本地 + Cloudflare KV 云端同步</p>
     <p>7. 数据源：Binance · alternative.me · mempool.space · looknode-proxy · btc-cache · <a href="https://btc.seanzhao.ai/" target="_blank" rel="noopener" style="color:var(--gold);">btc.seanzhao.ai</a>（子琦）</p>
     <p style="margin-top:10px;padding:8px 12px;background:rgba(248,113,113,0.08);border-radius:6px;border-left:3px solid var(--red);color:var(--red);"><strong>⚠️ 免责声明</strong>：本工具仅作信息聚合与参考，<strong>不构成任何投资建议</strong>。加密货币投资有极高风险，可能损失全部本金。所有决策请独立判断，风险自担。</p>
@@ -2344,9 +2357,9 @@
   };
 
   // 信号倍数
-  // 信号倍数（5 档细分）
+  // 信号倍数（6 档细分，含减仓）
   const SIGNAL_MULTIPLIERS = {
-    superbuy: 1.5, buy: 1.2, dca: 1.0, caution: 0.7, wait: 0.3
+    sell: 0, superbuy: 1.5, buy: 1.2, dca: 1.0, caution: 0.7, wait: 0.3
   };
 
   // 指标配置
@@ -2894,9 +2907,10 @@
     const dcaPct = total > 0 ? scores.dca / total : 0;
     const waitPct = total > 0 ? scores.wait / total : 0;
 
-    // 5 档细分
+    // 6 档细分（含减仓）
     let signal;
     if (total === 0) signal = 'wait';
+    else if (counts.wait >= 7) signal = 'sell';                 // ≥7 票等待 → 减仓提示
     else if (buyPct >= 0.70) signal = 'superbuy';              // 加仓票 ≥ 70%
     else if (buyPct >= 0.50) signal = 'buy';                    // 加仓票 50-70%
     else if (dcaPct > Math.max(buyPct, waitPct)) {
@@ -2935,6 +2949,7 @@
     card.className = 'signal-card ' + sig.signal;
     main.className = 'signal-main ' + sig.signal;
     const labels = {
+      sell: '🔴 减仓',
       superbuy: '🚀 超强仓',
       buy: '🟢 加仓',
       dca: '🔵 定投',
@@ -3061,7 +3076,8 @@
     const finalAmount = baseAmount * multiplier;
     const actualFinal = Math.min(finalAmount, totalLimit - allSpent);
 
-    const signalText = signal === 'superbuy' ? '超强仓 ×1.5' :
+    const signalText = signal === 'sell' ? '减仓 ×0（≥7 票等待）' :
+                       signal === 'superbuy' ? '超强仓 ×1.5' :
                        signal === 'buy' ? '加仓 ×1.2' :
                        signal === 'dca' ? '定投 ×1.0' :
                        signal === 'caution' ? '警惕 ×0.7' : '等待 ×0.3';
@@ -3095,8 +3111,8 @@
 
     // 用 innerHTML 一次性生成 multEl（含 multBadge span），避免 textContent 清空 span
     const multText = today.isLump ? '一次性' : '×' + today.multiplier.toFixed(1);
-    const badgeClassMap = { superbuy: 'x15', buy: 'x12', dca: 'x10', caution: 'x07', wait: 'x03' };
-    const badgeTextMap = { superbuy: '超强仓', buy: '加仓', dca: '定投', caution: '警惕', wait: '等待' };
+    const badgeClassMap = { sell: 'x00', superbuy: 'x15', buy: 'x12', dca: 'x10', caution: 'x07', wait: 'x03' };
+    const badgeTextMap = { sell: '减仓', superbuy: '超强仓', buy: '加仓', dca: '定投', caution: '警惕', wait: '等待' };
     const badgeClass = today.isLump ? 'x15' : (badgeClassMap[sig.signal] || 'x10');
     const badgeText = today.isLump ? 'LUMP' : (badgeTextMap[sig.signal] || sig.signal);
     multEl.innerHTML = multText + '<span class="multiplier-badge ' + badgeClass + '" id="multBadge">' + badgeText + '</span>';
@@ -3220,8 +3236,24 @@
 
   function renderProgress() {
     const c = computeCumulative();
-    const ratio = c.ratio;
-    document.getElementById('cumulativeAmount').textContent = '$' + fmtMoney(c.total_spent);
+    // 已有持仓（初始）
+    const existingBtc = parseFloat(localStorage.getItem('dca_existing_btc')) || 0;
+    const existingAvg = parseFloat(localStorage.getItem('dca_existing_avg')) || 0;
+    const existingAmount = existingBtc > 0 && existingAvg > 0 ? existingBtc * existingAvg : 0;
+
+    const existingRow = document.getElementById('existingPositionRow');
+    const existingText = document.getElementById('existingPositionText');
+    if (existingAmount > 0 && existingRow && existingText) {
+      existingRow.style.display = '';
+      existingText.textContent = existingBtc + ' BTC @ $' + fmtPrice(existingAvg) + ' = $' + fmtMoney(existingAmount);
+    } else if (existingRow) {
+      existingRow.style.display = 'none';
+    }
+
+    // 总累计 = 打卡累计 + 初始持仓金额
+    const grandTotal = c.total_spent + existingAmount;
+    const ratio = c.total > 0 ? grandTotal / c.total : 0;
+    document.getElementById('cumulativeAmount').textContent = '$' + fmtMoney(grandTotal);
     document.getElementById('cumulativeRatio').textContent = (ratio * 100).toFixed(2) + '% / $' + fmtMoney(c.total);
     const fill = document.getElementById('progressFill');
     fill.style.width = (ratio * 100) + '%';
@@ -3418,12 +3450,17 @@
       const user = document.getElementById('initUser').value.trim();
       const key = document.getElementById('initKey').value;
       const capital = document.getElementById('initCapital').value;
+      const existingBtc = document.getElementById('initExistingBtc').value;
+      const existingAvg = document.getElementById('initExistingAvg').value;
       if (!user) { alert('请填用户名'); return; }
       if (!/^[a-zA-Z0-9_\-]+$/.test(user)) { alert('用户名只能字母、数字、下划线、短横线'); return; }
       if (!key) { alert('请填密码'); return; }
+      if (!capital) { alert('请填总资金'); return; }
       localStorage.setItem('dca_user_id', user);
       localStorage.setItem('dca_user_key', key);
-      if (capital) localStorage.setItem('dca_capital', capital);
+      localStorage.setItem('dca_capital', capital);
+      if (existingBtc) localStorage.setItem('dca_existing_btc', existingBtc);
+      if (existingAvg) localStorage.setItem('dca_existing_avg', existingAvg);
       location.reload();
     });
   } else {
