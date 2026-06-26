@@ -759,7 +759,7 @@
       <input type="number" id="initCapital" placeholder="总资金 (USDT)" min="0" step="1000" required autocomplete="off">
       <input type="number" id="initExistingBtc" placeholder="已持仓 BTC 数量（如 1）" min="0" step="0.0001" autocomplete="off">
       <input type="number" id="initExistingAvg" placeholder="已持仓均价 USD（选填，如 80000）" min="0" step="100" autocomplete="off">
-      <input type="number" id="initDays" placeholder="分摊天数（默认 240）" min="30" step="30" autocomplete="off">
+      <input type="number" id="initDays" placeholder="默认到 2027-03-01（点这自动填)" min="30" step="30" autocomplete="off">
     </div>
     <button id="initSubmit">开始使用 →</button>
     <p class="init-note">账号密码设置后不可改 · 总资金/已持仓/均价进入后仍可改 · 多设备同步用相同的</p>
@@ -3489,6 +3489,17 @@
   if (!hasInit) {
     // 未初始化：显示设置界面，不加载主页面
     document.getElementById('initOverlay').classList.add('show');
+    // 点击分摊天数输入框 → 自动填入到 2027-03-01 的天数
+    const initDaysInput = document.getElementById('initDays');
+    if (initDaysInput) {
+      initDaysInput.addEventListener('focus', () => {
+        if (!initDaysInput.value) {
+          const target = new Date('2027-03-01');
+          const days = Math.max(30, Math.ceil((target - new Date()) / (1000 * 60 * 60 * 24)));
+          initDaysInput.value = days;
+        }
+      });
+    }
     document.getElementById('initSubmit').addEventListener('click', () => {
       const user = document.getElementById('initUser').value.trim();
       const key = document.getElementById('initKey').value;
