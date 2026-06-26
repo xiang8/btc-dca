@@ -97,8 +97,8 @@ export default {
       }
     }
 
-    // === 健康检查 ===
-    if (request.method === 'GET' && (path === '/' || path === '/ping')) {
+    // === 健康检查（只 /ping，让 / 走静态资源） ===
+    if (request.method === 'GET' && path === '/ping') {
       return new Response(JSON.stringify({
         service: 'BTC DCA API',
         time: new Date().toISOString(),
@@ -110,6 +110,11 @@ export default {
       }), {
         headers: { 'Content-Type': 'application/json; charset=utf-8', ...CORS_HEADERS }
       });
+    }
+
+    // 其他 GET 请求：从静态资源取（main.html / index.html 等）
+    if (request.method === 'GET' && env.ASSETS) {
+      return env.ASSETS.fetch(request);
     }
 
     return new Response('Not Found', { status: 404, headers: CORS_HEADERS });
