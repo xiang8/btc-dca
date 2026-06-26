@@ -181,8 +181,18 @@
     .today-item .label { font-size: 9px; }
     .today-item .sub { font-size: 10px; }
 
-    .matrix-wrap, .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .matrix-wrap, .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; touch-action: pan-x; }
     .matrix-wrap > table, .table-wrap > table { min-width: 560px; }
+
+    /* 手机端：设置区移到底部，进入就看到今日定投 */
+    .container { display: flex; flex-direction: column; }
+    header { order: 1; }
+    .signal-bar { order: 2; }
+    .indicator-grid, .section-title-row, .indicator-help { order: 3; }
+    .tab-bar { order: 4; }
+    .tab-content { order: 5; }
+    .footer-note { order: 6; }
+    .config-panel { order: 99; }
     .matrix-table th, .matrix-table td,
     .result-table th, .result-table td,
     .detail-table th, .detail-table td { padding: 6px 8px; font-size: 11px; white-space: nowrap; }
@@ -840,11 +850,11 @@
   <div class="config-panel">
     <div class="input-group">
       <label>用户名（跨设备同步用）</label>
-      <input type="text" id="userIdInput" placeholder="设置你的用户名" autocomplete="off">
+      <input type="text" id="userIdInput" placeholder="设置你的用户名" autocomplete="off" readonly>
     </div>
     <div class="input-group">
       <label>密码（保护数据）</label>
-      <input type="password" id="userKeyInput" placeholder="设置密码（首次设置后不可改）" autocomplete="new-password">
+      <input type="password" id="userKeyInput" placeholder="设置密码（首次设置后不可改）" autocomplete="new-password" readonly>
     </div>
     <div class="input-group">
       <label>总资金 (USDT)</label>
