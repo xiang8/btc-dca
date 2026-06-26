@@ -192,7 +192,18 @@ export default {
 
     // 其他 GET 请求：从静态资源取（main.html / index.html 等）
     if (request.method === 'GET' && env.ASSETS) {
-      return env.ASSETS.fetch(request);
+      const response = await env.ASSETS.fetch(request);
+      // HTML 强制不缓存（用户每次拿最新版，不需要清缓存）
+      // localStorage 不受影响（登录/数据仍保留）
+      const contentType = response.headers.get('Content-Type') || '';
+      if (contentType.includes('text/html')) {
+        const newResp = new Response(response.body, response);
+        newResp.headers.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+        newResp.headers.set('Pragma', 'no-cache');
+        newResp.headers.set('Expires', '0');
+        return newResp;
+      }
+      return response;
     }
 
     return new Response('Not Found', { status: 404, headers: CORS_HEADERS });
