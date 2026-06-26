@@ -822,7 +822,7 @@
     </div>
     <div class="signal-card wait" id="signalCard">
       <button id="detailBtn" class="detail-btn" title="查看完整链上指标">📊 完整看板 →</button>
-      <div class="signal-label">综合信号（10 指标加权 + 子琦评分）</div>
+      <div class="signal-label">综合信号（10 指标加权）</div>
       <div class="signal-main wait" id="signalMain">加载中</div>
       <div class="vote-bar" id="voteBar"></div>
       <div class="signal-scores">
@@ -895,7 +895,7 @@
       <p>阈值：<span class="zone-buy">≤ -20B 大幅流出（底部）</span> · <span class="zone-dca">-20B ~ -5B 小幅流出</span> · <span class="zone-wait">&gt; -5B 平衡/流入</span></p>
     </div>
     <div class="help-card">
-      <h4>子琦综合评分 <small>额外倍数叠加</small></h4>
+      <h4>综合积分 <small>参考显示</small></h4>
       <p>基于 5 大底部信号（S1-S5）综合评分 0-100。与原信号倍数取较小值（保守，最高 ×1.5）。</p>
       <p>映射：<span class="zone-buy">≥80 极度低估 ×1.5</span> · <span class="zone-buy">60-80 偏低估 ×1.2</span> · <span class="zone-dca">40-60 观望 ×1.0</span> · <span class="zone-wait">20-40 偏高 ×0.5</span> · <span class="zone-wait">&lt;20 顶部 ×0（停投）</span></p>
     </div>
@@ -3076,9 +3076,15 @@
 
     // 标准定投：基础% = 当前价格档位的目标仓位% / 240 天（越跌越买）
     // >6w 目标 0% → 不投；5.7-6w 目标 5% → 0.0208%/天；... <3.5w 已一次性
-    const baseRatio = tierData ? tierData.median / 240 : 0;
+    let baseRatio = tierData ? tierData.median / 240 : 0;
     if (baseRatio <= 0) {
-      return { amount: 0, baseRatio: 0, multiplier, tier: tierLabel, reason: '价格过高（>6w 观望档），不定投' + szLabel, isLump: false };
+      // 方案 A：>6w 观望档时，信号强按 5.7-6w 同档（5%/240）应急定投，信号弱不投
+      const strongSignal = (signal === 'superbuy' || signal === 'buy' || signal === 'dca');
+      if (strongSignal) {
+        baseRatio = 5 / 240;  // 应急最小定投（同 5.7-6w 档）
+      } else {
+        return { amount: 0, baseRatio: 0, multiplier, tier: tierLabel, reason: '价格过高（>6w）+ 信号弱（' + signal + '），不定投' + szLabel, isLump: false };
+      }
     }
     const baseAmount = baseRatio / 100 * total;
     const finalAmount = baseAmount * multiplier;
@@ -3089,7 +3095,8 @@
                        signal === 'buy' ? '加仓 ×1.2' :
                        signal === 'dca' ? '定投 ×1.0' :
                        signal === 'caution' ? '警惕 ×0.7' : '等待 ×0.3';
-    return { amount: actualFinal, baseRatio, multiplier, tier: tierLabel, reason: signalText + ' · 目标' + tierData.median + '%/240天 · 加仓' + sigObj.counts.buy + '票' + szLabel, isLump: false };
+    const tierInfo = tierData && tierData.median > 0 ? '目标' + tierData.median + '%/240天' : '应急 5%/240天';
+    return { amount: actualFinal, baseRatio, multiplier, tier: tierLabel, reason: signalText + ' · ' + tierInfo + ' · 加仓' + sigObj.counts.buy + '票' + szLabel, isLump: false };
   }
 
   function renderToday() {
