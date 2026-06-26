@@ -130,6 +130,13 @@
     font-size: 11px; color: var(--dim); margin-top: 4px;
     font-family: 'JetBrains Mono', monospace;
   }
+  .sz-score {
+    font-size: 12px; color: var(--dim); margin-top: 8px;
+    padding: 6px 10px; border-radius: 6px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid var(--border);
+  }
+  .sz-score b { font-weight: 700; }
 
   /* === 指标矩阵 === */
   .indicator-grid {
@@ -777,8 +784,11 @@
       <div class="price-change" id="btcChange">--</div>
     </div>
     <div class="signal-card wait" id="signalCard">
-      <button id="detailBtn" class="detail-btn" title="查看完整链上指标">📊 完整看板 →</button>
-      <div class="signal-label">综合信号（7 指标加权）</div>
+      <div style="display:flex;gap:6px;justify-content:flex-end;">
+        <button id="detailBtn" class="detail-btn" title="查看完整链上指标">📊 完整看板 →</button>
+        <button id="seanzhaoBtn" class="detail-btn" title="查看子琦底部信号看板" onclick="window.open('https://btc.seanzhao.ai/','_blank')">🎯 子琦看板 →</button>
+      </div>
+      <div class="signal-label">综合信号（10 指标加权 + 子琦评分）</div>
       <div class="signal-main wait" id="signalMain">加载中</div>
       <div class="vote-bar" id="voteBar"></div>
       <div class="signal-scores">
@@ -787,6 +797,7 @@
         <span class="score-wait" id="scoreWait">⚪ 等待 0 票</span>
       </div>
       <div class="vote-summary" id="voteSummary">-</div>
+      <div class="sz-score" id="szScore">子琦评分加载中...</div>
     </div>
   </div>
 
@@ -833,6 +844,26 @@
       <h4>200WMA <small>权重 5%</small></h4>
       <p>200 周均线（约 4 年周期），BTC 长期估值锚。现价 / 200WMA 比值。</p>
       <p>阈值：<span class="zone-buy">&lt; 1.0x 跌破均线（深低估）</span> · <span class="zone-dca">1.0–1.5x 接近均线</span> · <span class="zone-wait">&gt; 1.5x 远离均线</span></p>
+    </div>
+    <div class="help-card">
+      <h4>S1 LTH 持有者成本 <small>权重 5% · 数据：子琦</small></h4>
+      <p>价格相对短/平/长期持有者成本线的位置。返回 现价/平均成本 比值。</p>
+      <p>阈值：<span class="zone-buy">&lt; 0.95 跌破长期成本（深底）</span> · <span class="zone-buy">0.95–1.0 跌破平均成本</span> · <span class="zone-dca">1.0–1.1 接近短期成本</span> · <span class="zone-wait">&gt; 1.1 站上短期成本</span></p>
+    </div>
+    <div class="help-card">
+      <h4>S3 相对未实现损失 <small>权重 5% · 数据：子琦</small></h4>
+      <p>全市场账面亏损占比（越多越接近底）。来自子琦底部信号看板。</p>
+      <p>阈值：<span class="zone-wait">&lt; 15% 浮亏少（高位）</span> · <span class="zone-dca">15–30% 中性</span> · <span class="zone-buy">&gt; 30% 浮亏多（底部）</span></p>
+    </div>
+    <div class="help-card">
+      <h4>S4 资金净变化 <small>权重 5% · 数据：子琦</small></h4>
+      <p>近 30 天资金净流入/流出（$B）。负数=流出（接近底），正数=流入（接近顶）。</p>
+      <p>阈值：<span class="zone-buy">≤ -20B 大幅流出（底部）</span> · <span class="zone-dca">-20B ~ -5B 小幅流出</span> · <span class="zone-wait">&gt; -5B 平衡/流入</span></p>
+    </div>
+    <div class="help-card">
+      <h4>子琦综合评分 <small>额外倍数叠加</small></h4>
+      <p>基于 5 大底部信号（S1-S5）综合评分 0-100。与原信号倍数取较小值（保守，最高 ×1.5）。</p>
+      <p>映射：<span class="zone-buy">≥80 极度低估 ×1.5</span> · <span class="zone-buy">60-80 偏低估 ×1.2</span> · <span class="zone-dca">40-60 观望 ×1.0</span> · <span class="zone-wait">20-40 偏高 ×0.5</span> · <span class="zone-wait">&lt;20 顶部 ×0（停投）</span></p>
     </div>
   </div>
 
@@ -2350,8 +2381,47 @@
         { max: 1.5, signal: 'dca', label: '接近均线' },
         { max: Infinity, signal: 'wait', label: '远离均线' }
       ]
+    },
+    // seanzhao 三大底部信号（每日更新，Worker 代理爬取）
+    s1cost: {
+      name: 'S1 LTH成本', weight: 5, fetch: fetchS1CostRatio,
+      zones: [
+        { max: 0.95, signal: 'buy', label: '跌破长期成本' },
+        { max: 1.0, signal: 'buy', label: '跌破平均成本' },
+        { max: 1.1, signal: 'dca', label: '接近短期成本' },
+        { max: Infinity, signal: 'wait', label: '站上短期成本' }
+      ]
+    },
+    s3loss: {
+      name: 'S3 浮亏占比', weight: 5, fetch: fetchS3LossPct,
+      zones: [
+        { max: 15, signal: 'wait', label: '浮亏少（高位）' },
+        { max: 30, signal: 'dca', label: '中性' },
+        { max: Infinity, signal: 'buy', label: '浮亏多（底部）' }
+      ]
+    },
+    s4flow: {
+      name: 'S4 资金流', weight: 5, fetch: fetchS4NetFlow,
+      zones: [
+        { max: -20, signal: 'buy', label: '大幅流出' },
+        { max: -5, signal: 'dca', label: '小幅流出' },
+        { max: Infinity, signal: 'wait', label: '平衡/流入' }
+      ]
     }
   };
+
+  // seanzhao 综合评分 → 倍数映射（高分底部加仓，低分顶部停投）
+  const SZ_MULTIPLIERS = [
+    { minScore: 80, mult: 1.5, label: '极度低估（重仓）' },
+    { minScore: 60, mult: 1.2, label: '偏低估（加仓）' },
+    { minScore: 40, mult: 1.0, label: '观望（定投）' },
+    { minScore: 20, mult: 0.5, label: '偏高（减半）' },
+    { minScore: 0,  mult: 0,   label: '顶部（停投）' }
+  ];
+  function getSzMultiplier(score) {
+    if (score == null || isNaN(score)) return null;
+    return SZ_MULTIPLIERS.find(s => score >= s.minScore) || SZ_MULTIPLIERS[SZ_MULTIPLIERS.length - 1];
+  }
 
   // ============== 状态 ==============
   let currentPrice = 0;
@@ -2718,6 +2788,38 @@
     } catch (_) { return null; }
   }
 
+  // ============== seanzhao 底部信号（Worker 代理爬取，每日更新） ==============
+  let seanzhaoCache = null;
+  async function fetchSeanzhao() {
+    if (seanzhaoCache) return seanzhaoCache;
+    try {
+      const r = await fetchTimeout(`${WORKER_URL}/seanzhao`, 15000);
+      if (!r.ok) return null;
+      seanzhaoCache = await r.json();
+      return seanzhaoCache;
+    } catch (_) { return null; }
+  }
+  // S1: 价格 / 平均成本（<1 跌破平均成本）
+  async function fetchS1CostRatio() {
+    const d = await fetchSeanzhao();
+    if (!d || !d.btcPrice || !d.s1AvgCost) return null;
+    return d.btcPrice / d.s1AvgCost;
+  }
+  // S3: 浮亏占比 %
+  async function fetchS3LossPct() {
+    const d = await fetchSeanzhao();
+    return d && d.s3LossPct != null ? d.s3LossPct : null;
+  }
+  // S4: 30 天净流出 $B（负数 = 流出）
+  async function fetchS4NetFlow() {
+    const d = await fetchSeanzhao();
+    if (!d || !d.s4NetFlowText) return null;
+    const m = d.s4NetFlowText.match(/-?\$?([\d.]+)\s*B/);
+    if (!m) return null;
+    const val = parseFloat(m[1]);
+    return d.s4NetFlowText.includes('流出') ? -val : val;
+  }
+
   async function fetchSopr() {
     try {
       const r = await fetchTimeout('https://looknode-proxy.corms-cushier-0l.workers.dev/sopr', 10000);
@@ -2830,6 +2932,25 @@
     document.getElementById('voteSummary').textContent =
       '共 ' + sig.totalVotes + ' 票' + (sig.noData > 0 ? ' · ' + sig.noData + ' 个指标无数据' : '');
 
+    // 子琦评分显示
+    const szEl = document.getElementById('szScore');
+    if (szEl) {
+      const sz = seanzhaoCache;
+      if (sz && sz.totalScore != null) {
+        const info = getSzMultiplier(sz.totalScore);
+        const color = sz.totalScore >= 80 ? '#22c55e' :
+                      sz.totalScore >= 60 ? '#10b981' :
+                      sz.totalScore >= 40 ? 'var(--dim)' :
+                      sz.totalScore >= 20 ? 'var(--yellow)' : 'var(--red)';
+        szEl.innerHTML = '🎯 子琦评分 <b style="color:' + color + ';font-size:14px">' + sz.totalScore + '/100</b>' +
+                         ' · ' + (info ? info.label : '') + ' ×' + (info ? info.mult.toFixed(1) : '--') +
+                         (sz.zone ? ' · ' + sz.zone : '') +
+                         (sz.dataDate ? ' · 数据 ' + sz.dataDate : '');
+      } else {
+        szEl.textContent = '🎯 子琦评分：暂无数据（Worker /seanzhao 未就绪）';
+      }
+    }
+
     // 指标矩阵
     const grid = document.getElementById('indicatorGrid');
     grid.innerHTML = '';
@@ -2877,7 +2998,15 @@
     const total = parseFloat(document.getElementById('totalCapital').value) || 0;
     const tier = getPriceTier(price);
     const cell = MATRIX[tier][phase];
-    const multiplier = SIGNAL_MULTIPLIERS[signal];
+    const origMult = SIGNAL_MULTIPLIERS[signal];
+
+    // 融合 seanzhao 评分倍数（取较小值，最高 1.5x）
+    const szData = seanzhaoCache;
+    const szInfo = szData && szData.totalScore != null ? getSzMultiplier(szData.totalScore) : null;
+    const szMult = szInfo ? szInfo.mult : null;
+    // 取较小值（保守）；若 seanzhao 没数据则只用原倍数
+    const multiplier = szMult != null ? Math.min(origMult, szMult) : origMult;
+    const szLabel = szInfo ? ' · 子琦' + szData.totalScore + '分×' + szMult.toFixed(1) : '';
 
     const cumulative = computeCumulative();
     const phaseSpent = cumulative.byPhase[phase] || 0;
@@ -2889,12 +3018,17 @@
       return { amount: 0, baseRatio: 0, multiplier, tier, reason: '已达总上限 90%，停止定投', isLump: false };
     }
 
+    // 子琦顶部（评分<20）→ 停投
+    if (szMult === 0) {
+      return { amount: 0, baseRatio: 0, multiplier: 0, tier, reason: '子琦顶部信号，停投' + szLabel, isLump: false };
+    }
+
     if (cell.lump) {
       if (phaseSpent >= phaseLimit) {
         return { amount: 0, baseRatio: 0, multiplier, tier, reason: '阶段已达上限', isLump: false };
       }
-      const lumpAmount = Math.min(cell.lump / 100 * total, phaseLimit - phaseSpent);
-      return { amount: lumpAmount, baseRatio: cell.lump, multiplier: 1, tier, reason: '历史大底一次性触发', isLump: true };
+      const lumpAmount = Math.min(cell.lump / 100 * total, phaseLimit - phaseSpent) * (multiplier > 0 ? 1 : 0);
+      return { amount: lumpAmount, baseRatio: cell.lump, multiplier: 1, tier, reason: '历史大底一次性触发' + szLabel, isLump: true };
     }
 
     if (cell.daily) {
@@ -2905,13 +3039,16 @@
         if (remaining <= 0) {
           return { amount: 0, baseRatio: cell.daily, multiplier, tier, reason: '阶段已达上限', isLump: false };
         }
-        return { amount: remaining, baseRatio: cell.daily, multiplier: remaining / baseAmount, tier, reason: '阶段收尾', isLump: false };
+        return { amount: remaining, baseRatio: cell.daily, multiplier: remaining / baseAmount, tier, reason: '阶段收尾' + szLabel, isLump: false };
       }
-      const reasonText = signal === 'buy' ? '加仓信号 ×1.5' : signal === 'dca' ? '定投信号 ×1.0' : '等待信号 ×0.5';
-      return { amount: finalAmount, baseRatio: cell.daily, multiplier, tier, reason: reasonText, isLump: false };
+      const signalText = signal === 'superbuy' ? '超强仓 ×1.5' :
+                         signal === 'buy' ? '加仓 ×1.2' :
+                         signal === 'dca' ? '定投 ×1.0' :
+                         signal === 'caution' ? '警惕 ×0.7' : '等待 ×0.3';
+      return { amount: finalAmount, baseRatio: cell.daily, multiplier, tier, reason: signalText + szLabel, isLump: false };
     }
 
-    return { amount: 0, baseRatio: 0, multiplier, tier, reason: '价格过高，不定投', isLump: false };
+    return { amount: 0, baseRatio: 0, multiplier, tier, reason: '价格过高，不定投' + szLabel, isLump: false };
   }
 
   function renderToday() {

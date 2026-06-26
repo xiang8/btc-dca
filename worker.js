@@ -105,11 +105,65 @@ export default {
         auth: 'required (user + key)',
         endpoints: {
           load: 'GET /load?user=xxx&key=yyy',
-          save: 'POST /save?user=xxx&key=yyy'
+          save: 'POST /save?user=xxx&key=yyy',
+          seanzhao: 'GET /seanzhao（代理爬 btc.seanzhao.ai）'
         }
       }), {
         headers: { 'Content-Type': 'application/json; charset=utf-8', ...CORS_HEADERS }
       });
+    }
+
+    // === 代理爬 seanzhao BTC 底部信号看板 ===
+    // 数据每天更新一次（作者手动更新），返回完整 S1-S5 + 综合评分
+    if (request.method === 'GET' && path === '/seanzhao') {
+      try {
+        const r = await fetch('https://btc.seanzhao.ai/', {
+          headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
+        });
+        const html = await r.text();
+        const pick = (re) => { const m = html.match(re); return m ? m[1] : null; };
+        const pickNum = (re) => { const v = pick(re); return v ? parseFloat(v.replace(/[, $]/g, '')) : null; };
+
+        // 综合评分（0-100）
+        const totalScore = pickNum(/font-weight="700"[^>]*>(\d+)<\/text>\s*<text[^>]*>\/ 100<\/text>/);
+
+        const data = {
+          // BTC 当前价（seanzhao 数据日期）
+          btcPrice: pickNum(/BTC 价格[\s\S]*?<div class="big">\$([\d,]+)<\/div>/),
+          // 综合评分
+          totalScore: totalScore,
+          zone: pick(/gauge-zone"[^>]*>([^<]+)<\/div>/),
+          advice: pick(/gauge-dca"><b[^>]*>([^<]+)<\/b>/),
+          dataDate: pick(/数据日期\s*(\d{4}-\d{2}-\d{2})/),
+          // S1: 持有者成本（3 条线）
+          s1ShortCost: pickNum(/短期持有者成本[\s\S]*?<b>\$([\d,]+)<\/b>/),
+          s1AvgCost:   pickNum(/平均持有者成本[\s\S]*?<b>\$([\d,]+)<\/b>/),
+          s1LongCost:  pickNum(/长期持有者成本[\s\S]*?<b>\$([\d,]+)<\/b>/),
+          s1Score:     pickNum(/S1[\s\S]*?card-score"[^>]*>([\d.]+)<span/),
+          // S2: MVRV（跟原 MVRV 重复，但仍爬取对比）
+          s2Mvrv:      pickNum(/当前 MVRV <b>([\d.]+)<\/b>/),
+          s2Score:     pickNum(/S2[\s\S]*?card-score"[^>]*>([\d.]+)<span/),
+          // S3: 浮亏占比
+          s3LossPct:   pickNum(/当前浮亏占比 <b>([\d.]+)%<\/b>/),
+          s3Score:     pickNum(/S3[\s\S]*?card-score"[^>]*>([\d.]+)<span/),
+          // S4: 30 天资金净变化（文本，可能 "净流出 -$28.5B"）
+          s4NetFlowText: pick(/近 30 天\s*<b>([^<]+)<\/b>/),
+          s4Score:     pickNum(/S4[\s\S]*?card-score"[^>]*>([\d.]+)<span/),
+          // S5: 恐慌贪婪（跟原恐惧贪婪重复，但仍爬取对比）
+          s5Fear:      pickNum(/当前恐慌指数 <b>(\d+)<\/b>/),
+          s5Score:     pickNum(/S5[\s\S]*?card-score"[^>]*>([\d.]+)<span/),
+          fetchedAt:   new Date().toISOString()
+        };
+
+        return new Response(JSON.stringify(data), {
+          headers: { 'Content-Type': 'application/json; charset=utf-8', ...CORS_HEADERS, 'Cache-Control': 'public, max-age=3600' }
+        });
+      } catch (e) {
+        return new Response(JSON.stringify({ error: e.message }), {
+          status: 500,
+          headers: { 'Content-Type': 'application/json; charset=utf-8', ...CORS_HEADERS }
+        });
+      }
     }
 
     // 其他 GET 请求：从静态资源取（main.html / index.html 等）
