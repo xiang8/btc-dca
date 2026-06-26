@@ -761,7 +761,7 @@
       <input type="number" id="initExistingAvg" placeholder="已持仓均价 USD（选填，如 80000）" min="0" step="100" autocomplete="off">
     </div>
     <button id="initSubmit">开始使用 →</button>
-    <p class="init-note">设置后用户名密码不可改 · 多设备同步用相同的 · 已持仓数据用于显示初始投入进度</p>
+    <p class="init-note">账号密码设置后不可改 · 总资金/已持仓/均价进入后仍可改 · 多设备同步用相同的</p>
   </div>
 </div>
 
@@ -802,6 +802,14 @@
     <div class="input-group">
       <label>&nbsp;</label>
       <button id="exportBtn" class="bind-btn">📥 导出 JSON</button>
+    </div>
+    <div class="input-group">
+      <label>已持仓 BTC</label>
+      <input type="number" id="existingBtcInput" placeholder="如 0.4（选填）" min="0" step="0.0001" autocomplete="off">
+    </div>
+    <div class="input-group">
+      <label>持仓均价 USD</label>
+      <input type="number" id="existingAvgInput" placeholder="如 80000（选填）" min="0" step="100" autocomplete="off">
     </div>
   </div>
 
@@ -3335,6 +3343,23 @@
   }
 
   document.getElementById('totalCapital').addEventListener('input', render);
+  // 已持仓 + 均价（可随时改）
+  const existingBtcInput = document.getElementById('existingBtcInput');
+  const existingAvgInput = document.getElementById('existingAvgInput');
+  if (existingBtcInput) {
+    existingBtcInput.value = localStorage.getItem('dca_existing_btc') || '';
+    existingBtcInput.addEventListener('input', () => {
+      localStorage.setItem('dca_existing_btc', existingBtcInput.value);
+      render();
+    });
+  }
+  if (existingAvgInput) {
+    existingAvgInput.value = localStorage.getItem('dca_existing_avg') || '';
+    existingAvgInput.addEventListener('input', () => {
+      localStorage.setItem('dca_existing_avg', existingAvgInput.value);
+      render();
+    });
+  }
   document.getElementById('exportBtn').addEventListener('click', downloadJSON);
   document.getElementById('recalcBtn').addEventListener('click', () => {
     console.log('重算: totalCapital =', document.getElementById('totalCapital').value);
