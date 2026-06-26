@@ -1,180 +1,176 @@
 # 定投策略 - BTC 每日定投看板
 
 ## 项目用途
-BTC 每日定投决策工具：信号 + 时间 + 价格 三维度，决定今天该投多少。
-单 HTML 文件，可独立分发（完整看板已内嵌）。
+BTC 每日定投决策工具：价格档位 × 10 链上指标信号 × 自定义分摊天数。
+单 HTML 文件 + Cloudflare Worker（云端打卡 + 子琦数据代理）。
 
 ## 文件清单
 
 | 文件 | 说明 |
 |------|------|
-| `main.html` | **主文件**（3187 行 / ~130KB，整合所有功能） |
-| `index.html` | main.html 的同步副本（云端部署用） |
-| `启动看板.bat` | 双击启动（最小化启动 PowerShell） |
-| `start-server.ps1` | PowerShell HTTP 服务器（Windows 自带，无需 Python） |
-| `worker.js` | Cloudflare Worker 后端（打卡云端存储 + 密码保护） |
-| `wrangler.toml` | Cloudflare Worker 配置（worker 名 `btc-dca`） |
-| `btc_dca_history.json` | 运行时自动生成的打卡记录（首次启动创建） |
+| `main.html` | **主文件**（~3500 行 / ~140KB，整合所有功能） |
+| `index.html` | main.html 的同步副本（**改 main.html 后必须 cp 到 index.html**） |
+| `worker.js` | Cloudflare Worker（打卡 KV + 子琦爬虫代理 + HTML 不缓存） |
+| `wrangler.toml` | Worker 配置（KV 绑定 DCA_KV + Static Assets） |
+| `启动看板.bat` / `start-server.ps1` | 本地 PowerShell 启动（可选） |
 
-## 主文件架构（每日定投.html）
+## 部署
+- **Cloudflare Workers 自动部署**（git push → 自动 deploy）
+- 自定义域名：`btcdca.005718.xyz`
+- Worker URL：`https://btc-dca.hjvjbcjjvnk.workers.dev`（备份）
+- Worker 端点：`/load` `/save`（打卡）/ `/seanzhao`（子琦 JSON）/ `/seanzhao-page`（子琦 iframe）/ `/ping`
 
-### 1. 顶部信号栏（7 指标加权投票）
-- AHR999（30%）：`<0.4 加大买入 / 0.4-0.7 定投 / >0.7 等待`
-- MVRV-Z（20%）：`<0.5 加大 / 0.5-3 定投 / >3 等待`
-- 恐惧贪婪（15%）：`<20 加大 / 20-50 定投 / >50 等待`
-- MVRV（10%）：`<1.2 加大 / 1.2-2.5 定投 / >2.5 等待`
-- SOPR（10%）：`<0.97 加大 / 0.97-1.03 定投 / >1.03 等待`
-- Puell（10%）：`<0.5 加大 / 0.5-1.5 定投 / >1.5 等待`
-- 200WMA（5%）：`<1.0x 加大 / 1.0-1.5x 定投 / >1.5x 等待`
+## 核心计算逻辑
 
-综合信号 → 倍数：加仓 ×1.5 / 定投 ×1.0 / 等待 ×0.5
-
-### 2. 每日定投（价格 × 时间 × 信号）
-
-| 价格 | 试探期 (2026-07~12) | 加仓期 (2027-01~03) | 梭哈期 (2027-04+) |
-|------|---------------------|---------------------|-------------------|
-| > 7w | 0 | 0 | 0 |
-| 6-7w | 0.05% | 0.10% | 0.20% |
-| 5-6w | 0.10% | 0.20% | 0.40% |
-| 4-5w | 0.20% | 0.40% | 0.80% |
-| 3-4w | 0.50% | 1.00% | 2.00% |
-| < 3w | 一次性 5% | 一次性 10% | 一次性 20% |
-
-阶段累计上限：试探 30% / 加仓 60% / 梭哈 90%
-
-**今日应投** = 基础（价格×时间）× 信号倍数
-
-### 3. 完整看板模态框（📊 按钮）
-- `<template id="cloneTemplate">` 内嵌 btc看板_克隆 完整 HTML
-- 模态框打开时通过 `iframe.srcdoc` 注入
-- 包含 17 指标（200WMA/BP/MVRV/MVRV-Z/SOPR/Puell/减半倒计时/VWAP/相关性/跌破概率/mNAV/STRC 飞轮/矿机关机价）
-
-### 4. Tab 切换（两个）
-
-| Tab | 内容 |
-|-----|------|
-| 📅 每日定投 | 时间 × 价格 × 信号 三维定投（默认） |
-| 💰 价格一次性买入 | 7 档价格区间 → 目标仓位分配 + 分批挂单 |
-
-### 5. 价格一次性买入 tab（PRICE_TIERS）
-
-7 档区间 → 累计仓位（取中位数）→ 该档新增仓位 → 该档金额（基于总资金）
-
-| 档位 | 价格区间 | 累计仓位 | 新增仓位 | 状态 |
-|------|---------|---------|---------|------|
-| 0 | ≥ 6.0w | 0% | 0% | 观望 |
-| 1 | 5.7w–6.0w | 5% | 5% | 试探 |
-| 2 | 5.1w–5.7w | 15% | 10% | 预留子弹 |
-| 3 | 4.5w–5.1w | 35% | 20% | 分批建仓 |
-| 4 | 4.0w–4.5w | 55% | 20% | 重仓区 |
-| 5 | 3.5w–4.0w | 75% | 20% | 恐慌区 |
-| 6 | < 3.5w | 100% | 25% | 极限恐慌 |
-| **合计** | | | **100%** | |
-
-**分批挂单**：
-- tab 顶部下拉选「每档分批 1/3/5/10 笔」（默认 3 笔）
-- 🎲 重新随机零头按钮
-- 每档行尾 ▼ 展开分批明细（序号 / 挂单价 / 金额 / 买入 BTC）
-- 价格零头：每笔 +10~50u 随机（避开整数墙）
-- 金额零头：每笔 ±8% 随机，**末笔补齐**保证总和 = 该档总额
-- 价格分布：区间内 `(k+0.5)/N` 等分位置
-
-### 6. 信号矩阵「❓ 指标说明」面板
-- 矩阵标题右侧按钮，点击 toggle `#indicatorHelp` 面板
-- 7 张 help-card（AHR999/MVRV-Z/恐惧贪婪/MVRV/SOPR/Puell/200WMA）
-- 每张：公式 + 阈值含义（buy/dca/wait 三档色标）
-
-### 7. VANTA.FOG 雾效果背景
-- `<div id="vanta-bg">` fixed 全屏 z-index:-1
-- CDN：`three.r134.min.js` + `vanta.fog.min.js`（body 末尾加载）
-- 颜色参数：highlightColor `0xffc300` / midtoneColor `0xff1f00` / lowlightColor `0x2d00ff` / baseColor `0xffebeb`
-- 其他：blurFactor 0.6 / zoom 1 / speed 1
-- body 背景 `transparent !important`，VANTA 透出来，卡片背景保持深色叠在上面
-- `pointer-events: none` 不阻挡交互
-- 初始化用 lazy retry（等 VANTA library 加载完）
-
-### 8. 首次访问初始化界面
-- `#initOverlay` 模态层：用户名 + 密码 + 总资金（首次访问必填）
-- 总资金无默认值，autocomplete off
-
-### 9. 密码保护 + 云端同步
-- `WORKER_URL` 常量（main.html 内）：Cloudflare Worker URL
-- 用户名 + 密码（USER_ID / USER_KEY）：URL 参数 > localStorage
-- `saveToServer()` 自动 POST 到 Worker（失败 fallback 浏览器存储）
-
-## 数据源
-
-| 类型 | API |
-|------|-----|
-| BTC 价格 / K 线 | Binance（fallback: OKX） |
-| 恐惧贪婪 | `api.alternative.me/fng/` |
-| 区块 / 算力 | `mempool.space` |
-| 链上指标 (MVRV/SOPR/Puell/BP/mNAV) | `looknode-proxy.corms-cushier-0l.workers.dev` |
-| MVRV-Z | `btc-cache.corms-cushier-0l.workers.dev` |
-| AHR999 / 200WMA | 本地计算 |
-
-### AHR999 公式
+### 每日定投公式
 ```
-AHR999 = (现价 / 200日定投成本) × (现价 / 指数增长估值)
-指数增长估值 = 10^[5.84 × log10(币龄天数) - 17.01]
-币龄 = 距 2009-01-03 创世区块的天数
+每日% = (100% / 分摊天数) × 档位 mult × signalMult
+今日金额 = 总资金 × 每日% / 100
 ```
 
-## 启动方式
+### 价格档位（PRICE_TIERS，7 档 mult 加速）
+| 价格档位 | mult | 248 天基准下满需 |
+|---------|------|----------------|
+| >6w | 0.5 | 496 天 |
+| 5.7-6w | 1 | 248 天 |
+| 5.1-5.7w | 1.5 | 165 天 |
+| 4.5-5.1w | 2 | 124 天 |
+| 4.0-4.5w | 3 | 83 天 |
+| 3.5-4.0w | 4 | 62 天 |
+| <3.5w | 8 | 31 天 |
 
-### 方式 1：双击 启动看板.bat（推荐，完整功能）
-- bat 调用 `start-server.ps1`（PowerShell，Windows 自带）
-- PowerShell 起服务（端口 8765）+ 自动创建 `btc_dca_history.json` + 自动开浏览器
-- 打卡自动 POST `/save` 写入 JSON
-- **心跳机制**：页面每 5 秒 ping `/heartbeat`，关闭浏览器后 20 秒 PowerShell 自动关闭
-- bat 窗口一闪而过，PowerShell 最小化到任务栏
+### 分摊天数（distributeDays）
+- 默认动态算到 **2027-03-01**（`Math.ceil((TARGET - now)/day)`）
+- 用户可在主页「分摊天数」输入框改（localStorage 持久化）
+- 初始化界面点击输入框自动填推荐值
 
-### 方式 2：双击 每日定投.html（简单，无文件保存）
-- 直接双击 HTML（file://）
-- 所有功能正常，但打卡只存 localStorage
-- 关闭浏览器数据不丢（除非清缓存）
-
-## PowerShell 服务器端点（start-server.ps1）
-
-| 端点 | 方法 | 功能 |
+### signalMult（10 指标加权投票 → 6 档）
+| 信号 | 触发 | 倍数 |
 |------|------|------|
-| `GET /` 或 `GET /每日定投.html` | GET | 返回 HTML |
-| `GET /load-history` | GET | 返回 btc_dca_history.json 内容 |
-| `POST /save` | POST | 接收 body，写入 btc_dca_history.json |
-| `GET /heartbeat` | GET | 更新心跳时间戳 |
-| 其他静态文件 | GET | 返回对应文件（CSS/JS/图片等） |
+| 减仓 sell | 观望票 ≥ 7 | ×0 |
+| 超强仓 superbuy | 加仓票 ≥ 70% | ×1.5 |
+| 加仓 buy | 加仓票 50-70% | ×1.2 |
+| 定投 dca | 定投占多 + 加仓 ≥ 2 | ×1.0 |
+| 警惕 caution | 定投占多 + 加仓 < 2 | ×0.7 |
+| 等待 wait | 其他 | ×0.3 |
 
-## 打卡数据存储
-- **localStorage**（始终）：浏览器存储，浏览器/清缓存/移动文件会丢
-- **btc_dca_history.json**（通过 bat 启动）：本地文件，自动写入，最可靠
+### 10 指标权重（sum=100%）
+| 指标 | 权重 | 数据源 |
+|------|------|--------|
+| AHR999 | 25 | 本地计算 |
+| MVRV-Z | 15 | btc-cache |
+| 恐惧贪婪 | 10 | alternative.me |
+| MVRV | 10 | looknode-proxy |
+| SOPR | 10 | looknode-proxy |
+| Puell | 10 | looknode-proxy |
+| 200WMA | 5 | 本地计算 |
+| LTH 持有者成本 | 5 | **Worker /seanzhao** |
+| 浮亏占比 | 5 | **Worker /seanzhao** |
+| 资金流 | 5 | **Worker /seanzhao** |
 
-## 技术栈
-- 单 HTML 文件（无构建）
-- 内联 CSS + 原生 JS
-- `<template>` + `iframe.srcdoc` 实现内嵌看板（JS 隔离）
-- PowerShell HttpListener（本地服务器）
-- 心跳机制（异步 GetContext + 超时检查）
-- **VANTA.FOG + three.js r134**（雾效果背景，CDN 加载）
-- Cloudflare Workers + KV（云端打卡存储 + 密码验证）
+### 停投规则（任一触发）
+1. 加仓票 < 4
+2. 观望票 > 5（过半）
+3. 已投满 100% 总资金
+
+## 主文件结构
+
+### 顶部输入区（手机端移到底部）
+- 用户名 / 密码（**readonly**，初始定死）
+- 总资金 / 已持仓 BTC / 持仓均价 / 分摊天数（可改，localStorage 持久化）
+- 重算 / 导出 JSON
+
+### 信号栏
+- BTC 现价（Binance fallback OKX）
+- 综合信号（10 指标加权，6 档 emoji + 倍数）
+- 投票分布条（加仓/定投/等待）
+
+### 信号矩阵（5×2 grid，10 卡片）
+- 每张：指标名 + 权重 + 当前值 + zone label
+- 「❓ 指标说明」按钮 → 展开面板（10 张 help-card）
+
+### 今日定投卡
+- 当前价格档位 + 目标仓位 + 信号倍数 + 今日应投 + reason
+- reason 例：「超强仓 ×1.5 · 每日 0.1008% 总资金（100%/248天 × 0.5x）· 加仓7票」
+
+### 价格档位表（renderTierMatrix）
+- 7 行，显示**今日实际%**（基础 × mult × signalMult）
+- 当前价档位高亮（金色背景 + 👈）
+- 手机端横向滚动
+
+### 累计投入进度
+- 已有持仓（初始 BTC × 均价）显示
+- 累计含初始金额
+- 总资金消耗进度条
+
+### 执行历史
+- 加权均价 + 累计持仓 BTC
+
+### Tab 切换
+- 📅 每日定投（默认）
+- 💰 价格一次性买入（7 档分批挂单，区间内分 1/3/5/10 笔，价格零头 1-50u 随机避开整数墙）
+
+### 完整看板模态框（双 tab）
+- 🐟 神鱼看板（template 内嵌 fuckbtc.com 完整 HTML，iframe srcdoc）
+- 🎯 子琦看板（iframe src = Worker /seanzhao-page 代理）
+
+## 背景
+- **VANTA.WAVES**（深蓝 0x5588）+ 暗化遮罩 `rgba(10,14,26,0.55→0.7)`
+- 卡片玻璃态：`backdrop-filter: blur(16px) saturate(160%)`
+- `--card: rgba(20,26,46,0.78)` 半透明
+
+## 缓存策略
+- **worker.js 对 HTML 加 `Cache-Control: no-cache, no-store`**
+- 用户每次拿最新 HTML，**不需要清缓存**
+- localStorage 不受影响（登录/数据全保留）
+
+## 手机适配（@media max-width:768px）
+- `.container` flex column，**config-panel order:99 移到底部**（进入就看到今日定投）
+- 信号栏 / 今日卡 单列或 2 列
+- 表格 `overflow-x: auto` + `touch-action: pan-x` + `min-width: 560px`
+- 模态框 98% 宽
+- 按钮最小 36px 高（触摸友好）
+
+## ⚠️ 开发规则（bbxiang 要求）
+
+### 1. 电脑端改动必须同步手机适配
+**任何 UI 改动**（加元素/改布局/改样式）必须同时考虑手机端：
+- 检查 `@media (max-width: 768px)` 是否需要加规则
+- 新增 input/button 要在手机端测可点
+- 新增表格/grid 要在手机端测可滚动
+- 新增元素要在手机端 confirm 不撑破布局
+
+### 2. main.html 改完必须同步 index.html
+```bash
+cp main.html index.html
+```
+两个文件必须内容一致（Cloudflare 部署 index.html 作为入口）。
+
+### 3. commit 前 JS 语法检查
+```bash
+node -e "new Function(require('fs').readFileSync('main.html','utf8').match(/<script(?![^>]*src=)[^>]*>([\s\S]*?)<\/script>/g).sort((a,b)=>b.length-a.length)[0].match(/>([\s\S]*?)<\/script>/)[1])"
+```
+
+### 4. 删 HTML 元素必须同时删 JS 事件
+之前删「应用用户名」按钮 HTML 但留 JS 事件 → `getElementById` 返回 null → 整个 script 中断 → 页面空白。
+
+### 5. 不擅自加优化
+按 bbxiang 指令执行，不擅自加"改进"。
 
 ## 关键 Bug 修复记录
-- `computeSignal` 加 `isNaN` 检查 + zone fallback（避免 NaN 导致渲染中断）
-- `render()` 每个子函数独立 `try/catch`（避免局部错误导致整体空白）
-- PowerShell 脚本编码：全英文注释（避免中文导致 5.1 解析错误）
-- 文件名用英文（`start-server.ps1`），中文文件名内部用 Unicode 转义
-- **`renderToday` 加 null 防御**：集中取 DOM 元素 → 任一为 null 就 return（防御云端 HTML 旧版导致 `badge.className` 报错）
-- **金额零头 ±8%**（原 ±3% 不明显）：末笔补齐保证总和 = 该档总额
-- **VANTA 初始化用 lazy retry**：等 `window.VANTA.FOG` 就绪后再调用（避免 library 未加载完）
+- `renderToday` 用 `innerHTML` 一次性生成 multEl（避免 textContent 清空 multBadge span）
+- `computeSignal` 加 `isNaN` 检查 + zone fallback
+- `render()` 每个子函数独立 `try/catch`
+- `generateTierOffsets` 后存 localStorage（记忆分批选择）
+- `expandedTiers` Set 保留展开状态（避免定时刷新收回）
+- worker.js wrangler.toml 加 KV 绑定（避免 git deploy 覆盖手动绑定）
+- worker.js 加 Static Assets（让 Worker 服务 HTML）
+- worker.js HTML 加 no-store（用户不用清缓存）
+- PRICE_TIERS 边界：>6w min=60001（让 60000 落入 5.7-6w 档）
+- applyUserBtn 删除时同步删 JS 事件（避免 null.addEventListener 中断脚本）
 
 ## 来源
-- 完整看板（template 内嵌部分）来自 [fuckbtc.com](https://fuckbtc.com/)，原作者 [bitfish](https://x.com/bitfish)
-- 链上 Workers 代理由 bitfish 搭建，**强依赖作者维护**
-- 其他逻辑为 bbxiang 定制
-
-## 打包分发（3 个文件）
-```
-main.html
-启动看板.bat
-start-server.ps1
-```
-接收者双击 `启动看板.bat` 即可使用。
+- 完整看板（template 内嵌）：[fuckbtc.com](https://fuckbtc.com/)，作者 [bitfish](https://x.com/bitfish)
+- 链上指标代理（looknode-proxy / btc-cache）：bitfish 搭建
+- 底部信号数据（S1/S3/S4 + 综合评分）：[btc.seanzhao.ai](https://btc.seanzhao.ai/)，作者 [子琦 @Seanzhao1105](https://x.com/Seanzhao1105)
+- 其他逻辑：bbxiang 定制
