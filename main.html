@@ -5,6 +5,12 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
+<!-- vConsole 仅 ?debug=1 时加载（手机调试用） -->
+<script>
+  if (new URLSearchParams(location.search).get('debug') === '1') {
+    document.write('<script src="https://cdn.jsdelivr.net/npm/vconsole@latest/dist/vconsole.min.js"><\/script>');
+  }
+</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>2026~2027 BTC 每日定投看板</title>
 <style>
@@ -462,7 +468,10 @@
     border-radius: 12px; border: 1px solid var(--border);
     margin-bottom: 14px;
     display: flex; gap: 14px; align-items: end; flex-wrap: wrap;
+    justify-content: space-between;
   }
+  .config-inputs { display: flex; gap: 14px; align-items: end; flex-wrap: wrap; flex: 1; }
+  .config-actions { display: flex; gap: 10px; align-items: end; flex-shrink: 0; }
   .input-group { display: flex; flex-direction: column; gap: 5px; }
   .input-group label { font-size: 10px; color: var(--dim); text-transform: uppercase; letter-spacing: 0.5px; }
   .input-group input {
@@ -848,40 +857,45 @@
 
   <!-- 配置 -->
   <div class="config-panel">
-    <div class="input-group">
-      <label>用户名（跨设备同步用）</label>
-      <input type="text" id="userIdInput" placeholder="设置你的用户名" autocomplete="off" readonly>
-    </div>
-    <div class="input-group">
-      <label>密码（保护数据）</label>
-      <input type="password" id="userKeyInput" placeholder="设置密码（首次设置后不可改）" autocomplete="new-password" readonly>
-    </div>
-    <div class="input-group">
-      <label>总资金 (USDT)</label>
-      <div style="display:flex;gap:6px;align-items:center;">
-        <input type="number" id="totalCapital" placeholder="填入总资金" min="0" step="1000" style="flex:1;" onchange="if(window.render)render()" oninput="if(window.render)render()">
-        <button id="recalcBtn" class="bind-btn" style="background:linear-gradient(135deg,#f7931a 0%,#d97706 100%);color:#fff;">🔄 重算</button>
+    <div class="config-inputs">
+      <div class="input-group">
+        <label>用户名（跨设备同步用）</label>
+        <input type="text" id="userIdInput" placeholder="设置你的用户名" autocomplete="off" readonly>
+      </div>
+      <div class="input-group">
+        <label>密码（保护数据）</label>
+        <input type="password" id="userKeyInput" placeholder="设置密码（首次设置后不可改）" autocomplete="new-password" readonly>
+      </div>
+      <div class="input-group">
+        <label>总资金 (USDT)</label>
+        <input type="number" id="totalCapital" placeholder="填入总资金" min="0" step="1000" onchange="if(window.render)render()" oninput="if(window.render)render()">
+      </div>
+      <div class="input-group">
+        <label>已持仓 BTC</label>
+        <input type="number" id="existingBtcInput" placeholder="如 1" min="0" step="0.0001" autocomplete="off">
+      </div>
+      <div class="input-group">
+        <label>持仓均价 USD</label>
+        <input type="number" id="existingAvgInput" placeholder="如 80000（选填）" min="0" step="100" autocomplete="off">
+      </div>
+      <div class="input-group">
+        <label>分摊天数</label>
+        <input type="number" id="daysInput" placeholder="默认到 27 年 3 月 1 日" min="30" step="30" autocomplete="off">
       </div>
     </div>
-    <div class="input-group">
-      <label>保存状态</label>
-      <span id="saveStatus" class="save-status">检查中...</span>
-    </div>
-    <div class="input-group">
-      <label>&nbsp;</label>
-      <button id="exportBtn" class="bind-btn">📥 导出 JSON</button>
-    </div>
-    <div class="input-group">
-      <label>已持仓 BTC</label>
-      <input type="number" id="existingBtcInput" placeholder="如 1" min="0" step="0.0001" autocomplete="off">
-    </div>
-    <div class="input-group">
-      <label>持仓均价 USD</label>
-      <input type="number" id="existingAvgInput" placeholder="如 80000（选填）" min="0" step="100" autocomplete="off">
-    </div>
-    <div class="input-group">
-      <label>分摊天数</label>
-      <input type="number" id="daysInput" placeholder="默认到 27 年 3 月 1 日（动态算）" min="30" step="30" autocomplete="off">
+    <div class="config-actions">
+      <div class="input-group">
+        <label>&nbsp;</label>
+        <button id="recalcBtn" class="bind-btn" style="background:linear-gradient(135deg,#f7931a 0%,#d97706 100%);color:#fff;">🔄 重算</button>
+      </div>
+      <div class="input-group">
+        <label>保存状态</label>
+        <span id="saveStatus" class="save-status">检查中...</span>
+      </div>
+      <div class="input-group">
+        <label>&nbsp;</label>
+        <button id="exportBtn" class="bind-btn">📥 导出</button>
+      </div>
     </div>
   </div>
 
