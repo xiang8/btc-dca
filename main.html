@@ -3489,29 +3489,6 @@
   // 用户名 + 密码输入：启动时填入 + 应用按钮
   document.getElementById('userIdInput').value = USER_ID;
   document.getElementById('userKeyInput').value = USER_KEY;
-  document.getElementById('applyUserBtn').addEventListener('click', () => {
-    const newId = document.getElementById('userIdInput').value.trim();
-    const newKey = document.getElementById('userKeyInput').value;
-    if (!newId) { alert('请输入用户名'); return; }
-    if (!/^[a-zA-Z0-9_\-]+$/.test(newId)) {
-      alert('用户名只能用字母、数字、下划线、短横线');
-      return;
-    }
-    localStorage.setItem('dca_user_id', newId);
-    if (newKey) localStorage.setItem('dca_user_key', newKey);
-    const url = new URL(location);
-    url.searchParams.set('user', newId);
-    if (newKey) url.searchParams.set('key', newKey);
-    history.replaceState({}, '', url);
-    location.reload();
-  });
-  document.getElementById('userKeyInput').addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') document.getElementById('applyUserBtn').click();
-  });
-  // 回车也能应用
-  document.getElementById('userIdInput').addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') document.getElementById('applyUserBtn').click();
-  });
 
   // 自动检测输入框变化（兜底机制，防止 input 事件丢失）
   let lastTotalCapital = document.getElementById('totalCapital').value;
