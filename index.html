@@ -1055,13 +1055,12 @@
 
   <div class="footer-note">
     <p><strong>📌 多维度策略</strong></p>
-    <p>1. <strong>价格维度</strong>：7 档目标仓位（>6w 0% → &lt;3.5w 100%），每日% = 100/分摊天数 × 档位%（越跌越大）</p>
+    <p>1. <strong>价格维度</strong>：7 档加速倍数 mult（>6w ×0.5 → &lt;3.5w ×8），每日% = 100%/分摊天数 × mult × signalMult（越跌越大）</p>
     <p>2. <strong>信号维度</strong>：10 指标加权投票 → 超强仓 ×1.5 / 加仓 ×1.2 / 定投 ×1.0 / 警惕 ×0.7 / 等待 ×0.3 / <span style="color:var(--red);">减仓 ×0（≥7 票等待）</span></p>
-    <p>3. <strong>加仓票 &lt; 4 停投</strong>：加仓指标票数不足 4 票时强制不投</p>
-    <p>4. <strong>综合评分参考</strong>：子琦评分 0-100（仅显示，不参与计算）</p>
-    <p>5. <strong>总上限 100%</strong>：投满总资金停止</p>
-    <p>6. <strong>每日打卡</strong>：localStorage 本地 + Cloudflare KV 云端同步</p>
-    <p>7. 数据源：Binance · alternative.me · mempool.space · looknode-proxy · btc-cache · <a href="https://btc.seanzhao.ai/" target="_blank" rel="noopener" style="color:var(--gold);">btc.seanzhao.ai</a>（子琦）</p>
+    <p>3. <strong>停投规则</strong>：加仓票 &lt; 4 或 观望票 &gt; 5（过半）时强制不投</p>
+    <p>4. <strong>总上限 100%</strong>：投满总资金停止</p>
+    <p>5. <strong>每日打卡</strong>：localStorage 本地 + Cloudflare KV 云端同步</p>
+    <p>6. 数据源：Binance · alternative.me · mempool.space · looknode-proxy · btc-cache · <a href="https://btc.seanzhao.ai/" target="_blank" rel="noopener" style="color:var(--gold);">btc.seanzhao.ai</a></p>
     <p style="margin-top:10px;padding:8px 12px;background:rgba(248,113,113,0.08);border-radius:6px;border-left:3px solid var(--red);color:var(--red);"><strong>⚠️ 免责声明</strong>：本工具仅作信息聚合与参考，<strong>不构成任何投资建议</strong>。加密货币投资有极高风险，可能损失全部本金。所有决策请独立判断，风险自担。</p>
   </div>
 </div>
