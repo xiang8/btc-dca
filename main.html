@@ -814,7 +814,7 @@
     </div>
     <div class="input-group">
       <label>分摊天数</label>
-      <input type="number" id="daysInput" placeholder="推荐 248（到 27 年 3 月前）" min="30" step="30" autocomplete="off">
+      <input type="number" id="daysInput" placeholder="默认到 27 年 3 月 1 日（动态算）" min="30" step="30" autocomplete="off">
     </div>
   </div>
 
@@ -2479,7 +2479,10 @@
   let priceChange = 0;
   let indicatorValues = {};
   // 自定义分摊天数（默认 240，用户可改）
-  let distributeDays = parseInt(localStorage.getItem('dca_distribute_days'), 10) || 248;  // 默认到 27 年 3 月前
+  // 自定义分摊天数（默认动态算到 2027-03-01，用户可改）
+  const TARGET_DATE = new Date('2027-03-01');
+  const daysToTarget = Math.max(30, Math.ceil((TARGET_DATE - new Date()) / (1000 * 60 * 60 * 24)));
+  let distributeDays = parseInt(localStorage.getItem('dca_distribute_days'), 10) || daysToTarget;
 
   // ============== 工具 ==============
   function fetchTimeout(url, ms = 8000) {
@@ -2494,13 +2497,13 @@
   // 7 档区间 → 目标累计仓位（价格越低，仓位越重）
   // median: 累计仓位中位数（用于显示）/ deltaMin: 该档新增仓位 %（中位数差值）
   const PRICE_TIERS = [
-    { id: 0, min: 60001, max: Infinity, label: '> 6.0w',     pos: '0%',        note: '观望',      tone: 'wait',  median: 0,   deltaMin: 0  },
-    { id: 1, min: 57000, max: 60001,    label: '5.7w–6.0w', pos: '5%',        note: '试探',      tone: 'dca',   median: 5,   deltaMin: 5  },
-    { id: 2, min: 51000, max: 57000,    label: '5.1w–5.7w', pos: '10%–20%',   note: '预留子弹',  tone: 'dca',   median: 15,  deltaMin: 10 },
-    { id: 3, min: 45000, max: 51000,    label: '4.5w–5.1w', pos: '30%–40%',   note: '分批建仓',  tone: 'buy',   median: 35,  deltaMin: 20 },
-    { id: 4, min: 40000, max: 45000,    label: '4.0w–4.5w', pos: '50%–60%',   note: '重仓区',    tone: 'buy',   median: 55,  deltaMin: 20 },
-    { id: 5, min: 35000, max: 40000,    label: '3.5w–4.0w', pos: '70%–80%',   note: '恐慌区',    tone: 'buy',   median: 75,  deltaMin: 20 },
-    { id: 6, min: 0,     max: 35000,    label: '< 3.5w',    pos: '100%',      note: '极限恐慌',  tone: 'allin', median: 100, deltaMin: 25 }
+    { id: 0, min: 60001, max: Infinity, label: '> 6.0w',     pos: '0%',        note: '观望',      tone: 'wait',  median: 0,   deltaMin: 0,  mult: 0    },
+    { id: 1, min: 57000, max: 60001,    label: '5.7w–6.0w', pos: '5%',        note: '试探',      tone: 'dca',   median: 5,   deltaMin: 5,  mult: 0.5  },
+    { id: 2, min: 51000, max: 57000,    label: '5.1w–5.7w', pos: '10%–20%',   note: '预留子弹',  tone: 'dca',   median: 15,  deltaMin: 10, mult: 1    },
+    { id: 3, min: 45000, max: 51000,    label: '4.5w–5.1w', pos: '30%–40%',   note: '分批建仓',  tone: 'buy',   median: 35,  deltaMin: 20, mult: 1.5  },
+    { id: 4, min: 40000, max: 45000,    label: '4.0w–4.5w', pos: '50%–60%',   note: '重仓区',    tone: 'buy',   median: 55,  deltaMin: 20, mult: 2    },
+    { id: 5, min: 35000, max: 40000,    label: '3.5w–4.0w', pos: '70%–80%',   note: '恐慌区',    tone: 'buy',   median: 75,  deltaMin: 20, mult: 3    },
+    { id: 6, min: 0,     max: 35000,    label: '< 3.5w',    pos: '100%',      note: '极限恐慌',  tone: 'allin', median: 100, deltaMin: 25, mult: 'lump' }
   ];
 
   function getCurrentPriceTier(price) {
@@ -3081,15 +3084,16 @@
       return { amount: lumpAmount, baseRatio: 100, multiplier: 1, tier: tierLabel, reason: '极限恐慌一次性打光剩余' + szLabel, isLump: true };
     }
 
-    // 标准定投：每日% = 100/distributeDays × 档位倍数（档位 median 越大越跌越买）
-    // 例：distributeDays=248, 5.7-6w 档 median=5 → 每日 0.0202% 总资金
-    let baseRatio = tierData ? (100 / distributeDays) * (tierData.median / 100) : 0;
+    // 标准定投：每日% = (100/distributeDays) × 档位加速倍数（越跌越大）
+    // 例：distributeDays=248, 5.7-6w mult=0.5 → 每日 0.2016% 总资金
+    const tierMult = tierData && typeof tierData.mult === 'number' ? tierData.mult : 0;
+    let baseRatio = (100 / distributeDays) * tierMult;
     let emergency = false;
     if (baseRatio <= 0) {
-      // 方案 A：>6w 观望档时，信号强按 5.7-6w 同档应急定投，信号弱不投
+      // >6w 观望档：信号强按 5.7-6w 同档（mult=0.5）应急定投，信号弱不投
       const strongSignal = (signal === 'superbuy' || signal === 'buy' || signal === 'dca');
       if (strongSignal) {
-        baseRatio = (100 / distributeDays) * 0.05;  // 应急档位倍数 5%
+        baseRatio = (100 / distributeDays) * 0.5;  // 应急用 5.7-6w 同档倍数
         emergency = true;
       } else {
         return { amount: 0, baseRatio: 0, multiplier, tier: tierLabel, reason: '价格过高（>6w）+ 信号弱（' + signal + '），不定投' + szLabel, isLump: false };
@@ -3104,8 +3108,8 @@
                        signal === 'buy' ? '加仓 ×1.2' :
                        signal === 'dca' ? '定投 ×1.0' :
                        signal === 'caution' ? '警惕 ×0.7' : '等待 ×0.3';
-    const tierPct = emergency ? 5 : (tierData ? tierData.median : 0);
-    const tierInfo = '每日 ' + baseRatio.toFixed(4) + '% 总资金（100/' + distributeDays + '天 × 档位' + tierPct + '%）';
+    const usedMult = emergency ? 0.5 : tierMult;
+    const tierInfo = '每日 ' + baseRatio.toFixed(4) + '% 总资金（100/' + distributeDays + '天 × ' + usedMult + 'x）';
     return { amount: actualFinal, baseRatio, multiplier, tier: tierLabel, reason: signalText + ' · ' + tierInfo + ' · 加仓' + sigObj.counts.buy + '票' + szLabel, isLump: false };
   }
 
@@ -3238,16 +3242,18 @@
     tbody.innerHTML = '';
     PRICE_TIERS.forEach(t => {
       const isActive = cur && cur.id === t.id;
-      const dailyBase = t.median > 0 && t.median < 100 ? t.median / distributeDays : 0;  // 越跌越买：每档不同基础%
+      // 每日% = (100/distributeDays) × 档位加速倍数 mult
+      const isLumpTier = t.mult === 'lump';
+      const dailyBase = !isLumpTier && typeof t.mult === 'number' ? (100 / distributeDays) * t.mult : 0;
       const dailyAmount = dailyBase / 100 * total;
       const tr = document.createElement('tr');
       if (isActive) tr.classList.add('current-level');
       const marker = isActive ? '👉 ' : '';
-      const dailyDisplay = t.median === 0 ? '—' :
-                           t.median === 100 ? '一次性' :
-                           dailyBase.toFixed(4) + '%';
-      const amountDisplay = t.median === 0 ? '—' :
-                           t.median === 100 ? (total > 0 ? '$' + fmtMoney(total) : '—') :
+      const dailyDisplay = t.mult === 0 ? '—' :
+                           isLumpTier ? '一次性' :
+                           dailyBase.toFixed(4) + '% (×' + t.mult + ')';
+      const amountDisplay = t.mult === 0 ? '—' :
+                           isLumpTier ? (total > 0 ? '$' + fmtMoney(total) : '—') :
                            (dailyAmount > 0 ? '$' + fmtMoney(dailyAmount) : '—');
       tr.innerHTML =
         '<td class="row-label">' + marker + t.label + '</td>' +
@@ -3383,7 +3389,7 @@
     daysInputEl.value = String(distributeDays);
     daysInputEl.addEventListener('input', () => {
       const v = parseInt(daysInputEl.value, 10);
-      distributeDays = (v && v >= 30) ? v : 248;
+      distributeDays = (v && v >= 30) ? v : daysToTarget;
       localStorage.setItem('dca_distribute_days', String(distributeDays));
       render();
     });
