@@ -182,6 +182,7 @@
     .today-item .sub { font-size: 10px; }
 
     .matrix-wrap, .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .matrix-wrap > table, .table-wrap > table { min-width: 560px; }
     .matrix-table th, .matrix-table td,
     .result-table th, .result-table td,
     .detail-table th, .detail-table td { padding: 6px 8px; font-size: 11px; white-space: nowrap; }
@@ -2555,7 +2556,7 @@
   // 7 档区间 → 目标累计仓位（价格越低，仓位越重）
   // median: 累计仓位中位数（用于显示）/ deltaMin: 该档新增仓位 %（中位数差值）
   const PRICE_TIERS = [
-    { id: 0, min: 60001, max: Infinity, label: '> 6.0w',     pos: '0%',        note: '观望',      tone: 'wait',  median: 0,   deltaMin: 0,  mult: 0.5  },
+    { id: 0, min: 60001, max: Infinity, label: '> 6.0w',     pos: '0%',        note: '定投',      tone: 'wait',  median: 0,   deltaMin: 0,  mult: 0.5  },
     { id: 1, min: 57000, max: 60001,    label: '5.7w–6.0w', pos: '5%',        note: '试探',      tone: 'dca',   median: 5,   deltaMin: 5,  mult: 1    },
     { id: 2, min: 51000, max: 57000,    label: '5.1w–5.7w', pos: '10%–20%',   note: '预留子弹',  tone: 'dca',   median: 15,  deltaMin: 10, mult: 1.5  },
     { id: 3, min: 45000, max: 51000,    label: '4.5w–5.1w', pos: '30%–40%',   note: '分批建仓',  tone: 'buy',   median: 35,  deltaMin: 20, mult: 2    },
@@ -3298,7 +3299,7 @@
       if (isActive) tr.classList.add('current-level');
       const marker = isActive ? '👉 ' : '';
       const dailyDisplay = tierMult === 0 ? '—' :
-                           dailyActual.toFixed(4) + '% (×' + t.mult + '×' + sigMult.toFixed(1) + ')';
+                           dailyActual.toFixed(4) + '%';
       const amountDisplay = tierMult === 0 ? '—' :
                            (dailyAmount > 0 ? '$' + fmtMoney(dailyAmount) : '—');
       tr.innerHTML =
