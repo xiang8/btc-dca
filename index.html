@@ -183,12 +183,13 @@
     .signal-scores { font-size: 11px; gap: 6px; }
 
     .today-card { grid-template-columns: 1fr 1fr; gap: 12px; padding: 14px; }
+    .today-item { min-width: 0; }
     .today-item .value { font-size: 13px; white-space: nowrap; }
-    .today-item .value.big { font-size: 18px; }
+    .today-item .value.big { font-size: 15px; }
     .today-item .label { font-size: 9px; }
     .today-item .sub { font-size: 10px; }
 
-    .matrix-wrap, .table-wrap { overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch; touch-action: pan-x; }
+    .matrix-wrap, .table-wrap { overflow-x: auto !important; overflow-y: hidden !important; -webkit-overflow-scrolling: touch; touch-action: pan-x; }
     .matrix-wrap > table, .table-wrap > table { min-width: 560px; }
 
     /* 手机端：挂单列 sticky right，横向滚动时 ▼ 按钮始终可见 */
