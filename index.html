@@ -183,13 +183,25 @@
     .signal-scores { font-size: 11px; gap: 6px; }
 
     .today-card { grid-template-columns: 1fr 1fr; gap: 12px; padding: 14px; }
-    .today-item .value { font-size: 16px; }
-    .today-item .value.big { font-size: 22px; }
+    .today-item .value { font-size: 13px; white-space: nowrap; }
+    .today-item .value.big { font-size: 18px; }
     .today-item .label { font-size: 9px; }
     .today-item .sub { font-size: 10px; }
 
-    .matrix-wrap, .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; touch-action: pan-x; }
+    .matrix-wrap, .table-wrap { overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch; touch-action: pan-x; }
     .matrix-wrap > table, .table-wrap > table { min-width: 560px; }
+
+    /* 手机端：挂单列 sticky right，横向滚动时 ▼ 按钮始终可见 */
+    .tier-table th.col-action,
+    .tier-table td.col-action {
+      position: sticky; right: 0; z-index: 2;
+      background: var(--card2);
+      border-left: 1px solid var(--border);
+    }
+    .tier-table tr.current-level td.col-action {
+      background: rgba(247, 147, 26, 0.95);
+      z-index: 3;
+    }
 
     /* 手机端：设置区移到底部，进入就看到今日定投 */
     .container { display: flex; flex-direction: column; }
