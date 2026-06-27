@@ -183,15 +183,15 @@
     .signal-scores { font-size: 11px; gap: 6px; }
 
     .today-card { grid-template-columns: 1fr 1fr; gap: 12px; padding: 14px; }
+    .today-item:nth-last-child(-n+2) { grid-column: span 2; }
     .today-item { min-width: 0; }
-    .today-item .value { font-size: 8px; white-space: nowrap; }
-    .today-item .value.big { font-size: 10px; }
-    /* 信号倍数 badge 换到 ×xx 下方 */
+    .today-item .value { font-size: 12px; white-space: nowrap; }
+    .today-item .value.big { font-size: 16px; }
+    /* 信号倍数 badge 跟 ×1.5 同行（整行有空间） */
     .today-item .value .multiplier-badge {
-      display: block;
-      margin-top: 2px;
-      width: fit-content;
-      font-size: 9px;
+      display: inline-block;
+      margin-left: 4px;
+      font-size: 10px;
     }
     .today-item .label { font-size: 9px; }
     .today-item .sub { font-size: 10px; }
