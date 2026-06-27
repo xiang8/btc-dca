@@ -1,0 +1,24 @@
+# 本地运行时数据（绝不能 push）
+btc_dca_history.json
+
+# Claude / IDE
+.claude/
+.idea/
+.vscode/
+*.log
+
+# Node
+node_modules/
+package-lock.json
+pnpm-lock.yaml
+
+# Vercel CLI 本地配置
+.vercel/
+
+# 环境变量
+.env
+.env.local
+
+# OS
+.DS_Store
+Thumbs.db
