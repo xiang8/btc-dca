@@ -9,6 +9,7 @@
 <script>
   if (new URLSearchParams(location.search).get('debug') === '1') {
     document.write('<script src="https://cdn.jsdelivr.net/npm/vconsole@latest/dist/vconsole.min.js"><\/script>');
+    document.write('<script>window.addEventListener("load",function(){new VConsole()})<\/script>');
   }
 </script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
